@@ -33,5 +33,5 @@ __pycache__/
 # Ignorar archivos temporales específicos
 ._*
 *.Rhistory
-
+._README.md
 
