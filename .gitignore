@@ -1,0 +1,26 @@
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de editores de texto
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+
+# Archivos temporales de compilación
+*.o
+*.obj
+*.class
+*.pyc
+*.pyo
+__pycache__/
+
+# Archivos temporales específicos de Mac
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.AppleDB
+*temp
