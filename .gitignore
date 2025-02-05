@@ -2,6 +2,8 @@
 # Archivos temporales del sistema
 .DS_Store
 Thumbs.db
+.Rhistory
+._.Rhistory
 
 # Archivos temporales de editores de texto
 *~
