@@ -1,0 +1,61 @@
+---
+title: "10.1186s12933_023_02066_1"
+bibliography: Reference.bib
+---
+
+# Olive oil consumption, plasma metabolites, and risk of type 2 diabetes and cardiovascular disease
+
+## Código y material de apoyo al artículo
+
+[![R-CMD-check](https://github.com/gavilanbiost/10.1186s12933_023_02066_1/actions/workflows/R-CMD-check.yaml/badge.svg)] (AÑADIR URL)
+
+[![](https://img.shields.io/badge/DOI-10.1186%2Fs12933--023--02066--1-blue)](https://doi.org/10.1186/s12933-023-02066-1)
+
+## DESCRIPCIÓN CORTA
+
+En este estudio se emplearon modelos de aprendizaje automático para identificar conjuntos de metabolitos asociados al consumo de aceite de oliva y sus variedades, generando una puntuación capaz de predecir dicho consumo. Los valores faltantes se imputaron con *missForest* y las concentraciones metabolómicas se normalizaron mediante la transformación de Blom. Para seleccionar los metabolitos se aplicó un modelo Elastic Net con validación cruzada estratificada 10 × 10-fold. Los conjuntos identificados se validaron con los datos del primer año y se resumieron mediante PCA. Por último, la relación entre la puntuación metabolómica y la incidencia de diabetes tipo 2 o enfermedad cardiovascular se evaluó mediante modelos de Cox ponderados (pesos de Barlow), ajustados progresivamente por variables demográficas, estilo de vida y dieta.
+
+Incluye:
+
+-   Scripts en **R** para pre-procesar datos, ajustar modelos y generar las figuras del artículo.\
+-   Imágenes y tablas finales.
+
+> García-Gavilán JF, Babio N, Toledo E, et al. Olive oil consumption, plasma metabolites, and risk of type 2 diabetes and cardiovascular disease. Cardiovasc Diabetol. 2023 Dec 13;22(1):340. doi: 10.1186/s12933-023-02066-1. PMID: 38093289; PMCID: PMC10720204.
+
+## Contenidos
+
+1.  [Requisitos](#requisitos)
+2.  [Estructura del proyecto](#estructura-del-proyecto)
+3.  [Datos](#datos)
+4.  [Licencia y citación](#licencia)
+
+## Requisitos {#requisitos}
+
+-   **R ≥ 4.3**\
+-   Paquetes detallados en el apartado librerias del script `sintaxis`.\
+
+## Estructura del proyecto {#estructura-del-proyecto}
+
+El proyecto se divide en las siguientes fases:
+
+1.  Fase 1: preparación de los datos
+    1.  Preparación de los metadatos
+    2.  Creación de tablas descriptivas
+    3.  Preparación de los datos de metabolómica
+2.  Fase 2: ejecución de la elastic net
+    1.  Creación de las puntuaciones
+    2.  Validación visita al año
+3.  Fase 3: inferencia con incidencia de DT2 y con incidencia de ECV
+4.  Fase 4: analisis secundarios
+    1.  Diagrama de Venn
+    2.  Correlaciones entre las puntuaciones y el consumo estimado
+    3.  Estatrificación por grupos de intervención
+    4.  PCA
+
+## Datos {#Datos}
+
+Por cuestiones de tratamiento y protección de datos, las bases de datos de dichas publicaciones solo son accesibles bajo peticion estricta al Steering Committee (SC) de cada estudio respectivo. En estos archivos no se muestran las bases de datos de ninguno de los estudios. La forma de contacto con el SC de cada estudio está disponible dentro de cada respectiva publicacion a traves de los autores de correspondencia. Así mismo, las publicaciones publicadas bajo dominio de Open Access están incluidas en su carpeta en formato PDF.
+
+## Licencia y citación {#licencia}
+
+Licencia **GNU GENERAL PUBLIC LICENSE**
