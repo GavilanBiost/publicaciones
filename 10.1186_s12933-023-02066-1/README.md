@@ -124,6 +124,7 @@ Por cuestiones de tratamiento y protección de datos, las bases de datos de dich
 
 Licencia **GNU GENERAL PUBLIC LICENSE**
 
+-------------------------------------------------------------------------------------------------------------------------------------------------
 
 ### English
 
