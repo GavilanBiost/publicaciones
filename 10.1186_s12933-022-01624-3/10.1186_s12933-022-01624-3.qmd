@@ -1,0 +1,1034 @@
+---
+title: "10.1186_s12933-022-01624-3"
+format: html
+editor: visual
+---
+
+# 1. Openning the dadabases:
+
+Libraries:
+
+```{r}
+library(haven)
+library(rio)
+library(RNOmni)
+library(missForest)
+library(readxl)
+library(ggplot2)
+library(scales)
+```
+
+```{r}
+OGTT = read_dta("BBDD/OGTT.xlsx")
+Meta <- read_sav("BBDD/Metadata.SAV")
+View(OGTT)
+colnames(OGTT)
+View(Meta)
+colnames(Meta)
+```
+
+# 2. Quality control:
+
+```{r}
+#| label: Metada manipulation
+Meta = data.frame(cbind(Meta[1], Meta[1900], Meta[1887], Meta[27], Meta[29], Meta$hipocol1, Meta$hipocol3, 
+                            Meta$fsecos,  Meta$nuez, Meta$f_secos, Meta$fsecos3, 
+                            Meta$nuez3, Meta$f_secos3, 
+                            Meta$energiat, Meta$energiat3))
+
+colnames(Meta) = c("paciente","getota_1","af_1","diabetes0","hipercol0","hipocol1","hipocol3","fsecos","nuez",
+                       "f_secos", "fsecos3", "nuez3", "f_secos3", "energiat", 
+                       "energiat3")
+
+str(OGTT$paciente)
+str(Meta$paciente)
+```
+
+```{r}
+#| label: Merge OGTT - Meta
+OGTT = merge(OGTT, Meta, by = "paciente", all.x = T)
+
+colnames(OGTT)
+```
+
+## 1. Normalization process of lipidomics
+
+```{r}
+#| label: Missings
+
+# Are there missings? Remove variables?
+
+colnames(OGTT)[41:136]
+
+OGTT1 = ((OGTT)[41:136])
+
+na1 = sapply(OGTT1, function(OGTT1) sum(length(which(is.na(OGTT1)))))
+na2 = sapply(OGTT1, function(OGTT1) (100*sum(length(which(is.na(OGTT1))))/sum(length((OGTT1)))))
+na =  cbind("NA"=na1, "% NA"=na2)
+na
+
+rm (na, na1, na2)
+# No variables with > 20% NAs --> no remove variables
+```
+
+```{r}
+#| label: Imputation
+set.seed(1)
+OGTT2 = missForest(as.matrix(OGTT1), verbose = T)
+OGTT2$OOBerror
+OGTT2 = data.frame(OGTT2$ximp)
+colnames(OGTT2)
+```
+
+```{r}
+#| label: Normalization
+OGTT1 = apply(OGTT2, 2, rankNorm)
+OGTT_save = data.frame(cbind(OGTT[1:40], OGTT1))
+```
+
+## 2. Adjustment of nutritional variables by energy via least squares
+
+```{r}
+# V0
+
+diferencias = c()
+
+for (i in 191:193) {
+  media<-mean(OGTT_save[[i]], na.rm=T)
+  modelo<-lm (OGTT_save [[i]] ~ OGTT_save[[197]], na.action=na.exclude)
+  modelo$residuals
+  resid(modelo, na.action=na.exclude)
+  # Cofficients
+  modelo$coefficients[1] # Intercept
+  modelo$coefficients[2] # B1
+  # Adjustment
+  cambios <- resid(modelo, na.action=na.exclude) + (modelo$coefficients[1] + modelo$coefficients[2] * media)
+  diferencias[[i]] <- cambios}
+
+OGTT_save$fsecos_ajus = diferencias[[191]]
+OGTT_save$nuez_ajus = diferencias[[192]]
+OGTT_save$f_secos_ajus = diferencias[[193]]
+
+mean(OGTT_save$fsecos, na.rm = T)
+sd(OGTT_save$fsecos, na.rm = T)
+mean(OGTT_save$nuez, na.rm = T)
+sd(OGTT_save$nuez, na.rm = T)
+mean(OGTT_save$f_secos, na.rm = T)
+sd(OGTT_save$f_secos, na.rm = T)
+
+# V3
+
+diferencias = c()
+
+for (i in 194:196) {
+  media<-mean(OGTT_save[[i]], na.rm=T)
+  modelo<-lm (OGTT_save [[i]] ~ OGTT_save[[198]], na.action=na.exclude)
+  modelo$residuals
+  resid(modelo, na.action=na.exclude)
+  # Cofficients
+  modelo$coefficients[1] # Intercept
+  modelo$coefficients[2] # B1
+  # Adjustment
+  cambios <- resid(modelo, na.action=na.exclude) + (modelo$coefficients[1] + modelo$coefficients[2] * media)
+  diferencias[[i]] <- cambios}
+
+OGTT_save$fsecos3_ajus = diferencias[[194]]
+OGTT_save$nuez3_ajus = diferencias[[195]]
+OGTT_save$f_secos3_ajus = diferencias[[196]]
+
+rm(diferencias, modelo, cambios, media, i)
+```
+
+# 3. Creation of new variables:
+
+```{r}
+#| label: Changes in lipidomics
+
+OGTT_save[137:184] = OGTT_save[89:136] - OGTT_save[41:88]
+colnames(OGTT_save)[137:184] = c("TRLP_d", "VL_TRLP_d", "L_TRLP_d", "M_TRLP_d", "S_TRLP_d", "VS_TRLP_d", "cLDLP_d", "L_cLDLP_d", "M_cLDLP_d", "S_cLDLP_d", "cHDLP_d", "L_cHDLP_d", "M_cHDLP_d", "S_cHDLP_d", "H7P_d", "H6P_d", "H5P_d", "H4P_d", "H3P_d", "H2P_d", "H1P_d", "TRLZ_d", "LDLZ_d", "HDLZ_d", "NTG_d", "NTC_d", "NTRLTG_d", "NTRLC_d", "NLDLC_d", "NHDLC_d", "ApoB_d", "ApoA1_d", "BCAA_d", "Val_d", "Leu_d", "Ileu_d", "Ala_d", "Gly_d", "Glu_d", "Ctr_d", "KetBod_d", "B_HB_d", "AcAc_d", "Acetone_d", "LPIR_d", "DRI_d", "GlycA_d", "TMAO_d")
+
+OGTT_save = data.frame(cbind(OGTT_save, OGTT[185:198]))
+```
+
+```{r}
+#| label: Changes in nutritional variables
+
+OGTT_save$d_fsecos = OGTT_save$fsecos3_ajus - OGTT_save$fsecos_ajus
+OGTT_save$d_nuez = OGTT_save$nuez3_ajus - OGTT_save$nuez_ajus
+OGTT_save$d_f_secos = OGTT_save$f_secos3_ajus - OGTT_save$f_secos_ajus
+
+OGTT_save$d_fsecos_n = OGTT_save$fsecos3 - OGTT_save$fsecos
+OGTT_save$d_nuez_n = OGTT_save$nuez3 - OGTT_save$nuez
+OGTT_save$d_f_secos_n = OGTT_save$f_secos3 - OGTT_save$f_secos
+```
+
+```{r}
+#| label: Tertiles of nutritional variables
+
+OGTT_save$t_fsecos = Hmisc::cut2(OGTT_save$fsecos_ajus, g = 3)
+OGTT_save$t_dfsecos = Hmisc::cut2(OGTT_save$d_fsecos, g = 3)
+
+table(OGTT_save$t_fsecos)
+table(OGTT_save$t_dfsecos)
+
+OGTT_save$t_nuez = Hmisc::cut2(OGTT_save$nuez_ajus, g = 3)
+OGTT_save$t_dnuez = Hmisc::cut2(OGTT_save$d_nuez, g = 3)
+
+table(OGTT_save$t_nuez)
+table(OGTT_save$t_dnuez)
+
+OGTT_save$t_f_secos = Hmisc::cut2(OGTT_save$f_secos_ajus, g = 3)
+OGTT_save$t_df_secos = Hmisc::cut2(OGTT_save$d_f_secos, g = 3)
+
+table(OGTT_save$t_f_secos)
+table(OGTT_save$t_df_secos)
+```
+
+```{r}
+#| label: Adaptation of other variables
+
+OGTT_save$cambios = ifelse(OGTT_save$hipocol1 == OGTT_save$hipocol3, "Verdero", "Falso")
+table(OGTT_save$cambios)
+```
+
+```{r}
+#| label: Binomial database
+
+OGTT_save$t_fsecos = as.numeric(OGTT_save$t_fsecos)
+OGTT_save_bi = subset(OGTT_save, t_fsecos == 1 | t_fsecos == 3)
+
+OGTT_save$t_nuez = as.numeric(OGTT_save$t_nuez)
+OGTT_save_bi = subset(OGTT_save, t_nuez == 1 | t_nuez == 3)
+
+OGTT_save$t_f_secos = as.numeric(OGTT_save$t_f_secos)
+OGTT_save_bi = subset(OGTT_save, t_f_secos == 1 | t_f_secos == 3)
+
+OGTT_save$t_dfsecos = as.numeric(OGTT_save$t_dfsecos)
+OGTT_save_bi = subset(OGTT_save, t_dfsecos == 1 | t_dfsecos == 3)
+
+OGTT_save$t_dnuez = as.numeric(OGTT_save$t_dnuez)
+OGTT_save_bi = subset(OGTT_save, t_dnuez == 1 | t_dnuez == 3)
+
+OGTT_save$t_df_secos = as.numeric(OGTT_save$t_df_secos)
+OGTT_save_bi = subset(OGTT_save, t_df_secos == 1 | t_df_secos == 3)
+```
+
+
+Working Database Extraction (Safety Point):
+
+```{r}
+export(OGTT_save, "BBDD_RN_Nuts.xlsx")
+```
+
+# 4. Baseline characteristics:
+
+```{r}
+Tabla1 = data.frame(cbind(OGTT_save[1], OGTT_save[3:4], OGTT_save[7:8], OGTT_save[10], OGTT_save[187:189], OGTT_save[5], OGTT_save[13:14], OGTT_save[185], OGTT_save[196:200], OGTT_save[211]))
+
+colnames(Tabla1)
+
+medias = c()
+SD = c()
+medias.tot = c()
+SD.tot = c()
+
+for (i in 10:18) {
+  medias[[i]] = tapply(Tabla1[[i]], Tabla1[[19]], mean, na.rm = T)
+  SD[[i]] = tapply(Tabla1[[i]], Tabla1[[19]], sd, na.rm = T)
+  medias.tot[[i]] = mean(Tabla1[[i]],na.rm = T)
+  SD.tot[[i]] = sd(Tabla1[[i]], na.rm = T)
+}
+
+medias = round(data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE),1)
+SD = round(data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE),1)
+medias.tot = round(data.frame(matrix(unlist(medias.tot), ncol=1, byrow=T),stringsAsFactors=FALSE),1)
+SD.tot = round(data.frame(matrix(unlist(SD.tot), ncol=1, byrow=T),stringsAsFactors=FALSE),1)
+SD.tot = data.frame(cbind(medias.tot, SD.tot))
+resumen = data.frame(cbind(medias, SD, SD.tot[10:18,]))
+resumen$nombres = colnames(Tabla1)[10:18]
+colnames(resumen) = c("T1", "T2", "T3", "sd1", "sd2", "sd3", "tot", "sd", "names")
+
+export(resumen, "cbasales_num_nuts.xlsx")
+rm(medias, medias.tot, resumen, SD, SD.tot, i)
+
+table(Tabla1$t_fsecos)
+(table(as.factor(Tabla1$sexo))) 
+(prop.table(table(as.factor(Tabla1$sexo)))*100) 
+chisq.test((OGTT_save$sexo), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$grup_int))) 
+(prop.table(table(as.factor(Tabla1$grup_int)))*100) 
+chisq.test((OGTT_save$grup_int), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$hta0))) 
+(prop.table(table(as.factor(Tabla1$hta0)))*100)
+chisq.test((OGTT_save$hta0), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$tabaco0))) 
+(prop.table(table(as.factor(Tabla1$tabaco0)))*100)
+chisq.test((OGTT_save$tabaco0), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$escolar1))) 
+(prop.table(table(as.factor(Tabla1$escolar1)))*100)
+chisq.test((OGTT_save$escolar1), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$diabetes0))) 
+(prop.table(table(as.factor(Tabla1$diabetes0)))*100)
+chisq.test((OGTT_save$diabetes0), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$hipercol0))) 
+(prop.table(table(as.factor(Tabla1$hipercol0)))*100)
+chisq.test((OGTT_save$hipercol0), OGTT_save$t_fsecos)$p.value 
+(table(as.factor(Tabla1$m_estatin))) 
+(prop.table(table(as.factor(Tabla1$m_estatin)))*100)
+chisq.test((Tabla1$m_estatin), Tabla1$t_fsecos)$p.value 
+(table(as.factor(Tabla1$sexo), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$sexo), Tabla1$t_fsecos))*100) 
+(table(as.factor(Tabla1$grup_int), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$grup_int), Tabla1$t_fsecos))*100) 
+(table(as.factor(Tabla1$hta0), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$hta0), Tabla1$t_fsecos))*100)
+(table(as.factor(Tabla1$tabaco0), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$tabaco0), Tabla1$t_fsecos))*100)
+(table(as.factor(Tabla1$escolar1), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$escolar1), Tabla1$t_fsecos))*100)
+(table(as.factor(Tabla1$diabetes0), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$diabetes0), Tabla1$t_fsecos))*100)
+(table(as.factor(Tabla1$hipercol0), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$hipercol0), Tabla1$t_fsecos))*100)
+(table(as.factor(Tabla1$m_estatin), Tabla1$t_fsecos)) 
+(prop.table(table(as.factor(Tabla1$m_estatin), Tabla1$t_fsecos))*100)
+tapply(OGTT_save$glu1, OGTT_save$t_fsecos, mean, na.rm = T)
+tapply(OGTT_save$glu1, OGTT_save$t_fsecos, sd, na.rm = T)
+(summary.aov(aov(OGTT_save$glu1 ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$col1, OGTT_save$t_fsecos, mean, na.rm = T)
+tapply(OGTT_save$col1, OGTT_save$t_fsecos, sd, na.rm = T)
+(summary.aov(aov(OGTT_save$col1 ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$hdl1, OGTT_save$t_fsecos, mean, na.rm = T)
+tapply(OGTT_save$hdl1, OGTT_save$t_fsecos, sd, na.rm = T)
+(summary.aov(aov(OGTT_save$hdl1 ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$ldl1, OGTT_save$t_fsecos, mean, na.rm = T)
+tapply(OGTT_save$ldl1, OGTT_save$t_fsecos, sd, na.rm = T)
+(summary.aov(aov(OGTT_save$ldl1 ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$tg1, OGTT_save$t_fsecos, mean, na.rm = T)
+tapply(OGTT_save$tg1, OGTT_save$t_fsecos, sd, na.rm = T)
+(summary.aov(aov(OGTT_save$tg1 ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+(table((OGTT_save$hipocol1), OGTT_save$t_fsecos)) 
+(prop.table(table(as.factor(OGTT_save$hipocol1), OGTT_save$t_fsecos))*100)
+chisq.test((OGTT_save$hipocol1), OGTT_save$t_fsecos)$p.value
+```
+
+# 5. Statistical analysis:
+
+## 1. ANOVAS/ANCOVAS:
+
+```{r}
+#| label: Baseline
+
+#Fsecos: 
+
+table(OGTT_save$t_fsecos)
+tapply(OGTT_save$fsecos, OGTT_save$t_fsecos, mean)
+tapply(OGTT_save$fsecos, OGTT_save$t_fsecos, sd)
+(summary.aov(aov(OGTT_save$fsecos ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$nuez, OGTT_save$t_fsecos, mean)
+tapply(OGTT_save$nuez, OGTT_save$t_fsecos, sd)
+(summary.aov(aov(OGTT_save$nuez ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$f_secos, OGTT_save$t_fsecos, mean)
+tapply(OGTT_save$f_secos, OGTT_save$t_fsecos, sd)
+(summary.aov(aov(OGTT_save$f_secos ~ OGTT_save$t_fsecos))[[1]][["Pr(>F)"]])
+tapply(OGTT_save$nuez, OGTT_save$t_nuez, mean)
+tapply(OGTT_save$nuez, OGTT_save$t_nuez, sd)
+tapply(OGTT_save$f_secos, OGTT_save$t_f_secos, mean)
+tapply(OGTT_save$f_secos, OGTT_save$t_f_secos, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+for (i in 41:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[211]], mean, na.rm = T, conf.level = 0.95)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[211]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[211]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(round(medias,2), round(SD,2), round(anovas[41:184,],3)))
+
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[211]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas[41:184,],3)))
+
+# Nuez:
+
+table(OGTT_save$t_nuez)
+tapply(OGTT_save$nuez_ajus, OGTT_save$t_nuez, mean)
+tapply(OGTT_save$nuez_ajus, OGTT_save$t_nuez, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+
+for (i in 41:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[213]], mean, na.rm = T)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[213]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[213]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(round(medias,2), round(SD,2), round(anovas,3)))
+
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[213]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas,3)))
+
+#f_secos: basal
+
+table(OGTT_save$t_f_secos)
+tapply(OGTT_save$f_secos_ajus, OGTT_save$t_f_secos, mean)
+tapply(OGTT_save$f_secos_ajus, OGTT_save$t_f_secos, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+
+for (i in 41:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[215]], mean, na.rm = T)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[215]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[215]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(round(medias,2), round(SD,2), round(anovas,3)))
+
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[215]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas,3)))
+```
+
+```{r}
+#| label: Binomial baseline
+
+#Fsecos:
+
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[211]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]] + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas[41:184,],3)))
+
+resumen$YY = colnames(OGTT_save)[41:184]
+
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_fsecos.xlsx")
+
+rm(anovas, medias, resumen, SD, i)
+
+# Nuez:
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[213]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]] + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas,3)))
+
+resumen$YY = colnames(OGTT_save)[41:184]
+
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_nuez.xlsx")
+
+#f_secos: basal
+anovas = c()
+
+for (i in 41:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[215]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]] + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, round(anovas,3)))
+
+resumen$YY = colnames(OGTT_save)[41:184]
+
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_f_secos.xlsx")
+
+rm(anovas, medias, resumen, SD, i)
+
+```
+
+```{r}
+#| label: Changings
+OGTT_save = subset(OGTT_save, energiat > 0)
+OGTT_save$cambio = OGTT_save1$cambios
+
+#Fsecos
+
+table(OGTT_save$t_dfsecos)
+tapply(OGTT_save$d_fsecos, OGTT_save$t_dfsecos, mean)
+tapply(OGTT_save$d_fsecos, OGTT_save$t_dfsecos, sd)
+tapply(OGTT_save$d_fsecos_n, OGTT_save$t_dfsecos, mean)
+tapply(OGTT_save$d_fsecos_n, OGTT_save$t_dfsecos, sd)
+tapply(OGTT_save$d_nuez_n, OGTT_save$t_nuez, mean, na.rm = T)
+tapply(OGTT_save$d_nuez_n, OGTT_save$t_nuez, sd, na.rm = T)
+tapply(OGTT_save$d_f_secos_n, OGTT_save$t_df_secos, mean)
+tapply(OGTT_save$d_f_secos_n, OGTT_save$t_df_secos, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+for (i in 137:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[212]], mean, na.rm = T)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[212]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[212]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(medias, SD, anovas[137:184,]))
+
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[212]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[217]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]] + OGTT_save[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+
+#Nueces
+
+table(OGTT_save$t_dnuez)
+tapply(OGTT_save$d_nuez, OGTT_save$t_dnuez, mean)
+tapply(OGTT_save$d_nuez, OGTT_save$t_dnuez, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+for (i in 137:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[210]], mean, na.rm = T)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[210]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[210]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(medias, SD, anovas[137:184,]))
+
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[214]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[217]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]] + OGTT_save[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+
+#F_secos
+
+table(OGTT_save$t_df_secos)
+tapply(OGTT_save$d_f_secos, OGTT_save$t_df_secos, mean)
+tapply(OGTT_save$d_f_secos, OGTT_save$t_df_secos, sd)
+
+medias = c()
+SD = c()
+anovas = c()
+
+for (i in 137:184) {
+  medias[[i]] = tapply(OGTT_save[[i]], OGTT_save[[216]], mean, na.rm = T)
+  SD[[i]] = tapply(OGTT_save[[i]], OGTT_save[[216]], sd, na.rm = T)
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[216]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+medias = data.frame(matrix(unlist(medias), ncol=3, byrow=T),stringsAsFactors=FALSE)
+SD = data.frame(matrix(unlist(SD), ncol=3, byrow=T),stringsAsFactors=FALSE)
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(medias, SD, anovas))
+
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save[[i]] ~ OGTT_save[[216]] + OGTT_save[[4]] + OGTT_save[[5]] + OGTT_save[[7]] + OGTT_save[[8]] + OGTT_save[[13]] + OGTT_save[[185]] + OGTT_save[[217]] + OGTT_save[[87]] + OGTT_save[[188]] + OGTT_save[[189]] + OGTT_save[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+```
+
+```{r}
+#| label: Binomial Changings 
+
+#fsecos:
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[212]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]]
+                                 + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[217]]
+                                 + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]] + OGTT_save_bi[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+resumen$YY = colnames(OGTT_save)[137:184]
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_dfsecos.xlsx")
+rm(anovas, medias, resumen, SD, i)
+
+# Nueces:
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[214]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]]
+                                 + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[217]]
+                                 + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]] + OGTT_save_bi[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+resumen$YY = colnames(OGTT_save)[137:184]
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_dnuez.xlsx")
+rm(anovas, medias, resumen, SD, i)
+
+#F_secos
+
+anovas = c()
+
+for (i in 137:184) {
+  anovas[[i]] = (summary.aov(aov(OGTT_save_bi[[i]] ~ OGTT_save_bi[[216]] + OGTT_save_bi[[4]] + OGTT_save_bi[[5]] + OGTT_save_bi[[7]] + OGTT_save_bi[[8]] + OGTT_save_bi[[13]] + OGTT_save_bi[[185]] + OGTT_save_bi[[217]] + OGTT_save_bi[[87]] + OGTT_save_bi[[188]] + OGTT_save_bi[[189]] + OGTT_save_bi[[i - 96]]))[[1]][["Pr(>F)"]])[[1]]
+}
+
+anovas = data.frame(matrix(unlist(anovas), ncol=1, byrow=T),stringsAsFactors=FALSE)
+resumen = data.frame(cbind(resumen, anovas[137:184,]))
+resumen$YY = colnames(OGTT_save)[137:184]
+colnames(resumen) = c("m.T1", "m.T2", "m.T3", "sd.T1", "sd.T2", "sd.T3", "P-value", "P-value_ANC", "P-value_bi", "names")
+
+export(resumen, "media_SD_RN_t_df_secos.xlsx")
+rm(anovas, medias, resumen, SD, i)
+```
+
+## 2. Other estimates
+
+```{r}
+#| label: CI 95%
+
+ICs <- read_excel("Nuts/ICs.xlsx", sheet = "Total nuts")
+
+lowIC = c()
+highIC = c()
+t = c()
+
+for (i in 1:96) {
+  t=qt(p=.95, df=ICs$n[[i]]-1)
+  highIC[[i]]=ICs$media[[i]]+t*sqrt(ICs$sd[[i]]^2/ICs$n[[i]])
+  lowIC[[i]]=ICs$media[[i]]-t*sqrt(ICs$sd[[i]]^2/ICs$n[[i]])
+} 
+
+highIC = round(data.frame(matrix(unlist(highIC), ncol=1, byrow=T),stringsAsFactors=FALSE),2)
+lowIC = round(data.frame(matrix(unlist(lowIC), ncol=1, byrow=T),stringsAsFactors=FALSE),2)
+ICsTN_basal = data.frame(cbind(ICs$media, lowIC, highIC, ICs$tercil))
+ICsTN_basal$nombres = ICs$Variable
+
+export(ICsTN_basal, "ICsTN_basal.xlsx")
+```
+
+# 6. Figures
+
+```{r}
+#| label: Total nuts basaline VLDL
+
+VLDL <- read_excel("ICsTN_basal.xlsx", sheet = "VLDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  ylab ('Mean (95% IC)') +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "A") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[9:1])
+
+ggsave(filename = "Total Nuts baseline v3 VLDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts basaline HDL
+
+VLDL <- read_excel("ICsTN_basal.xlsx", sheet = "HDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "B") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[13:1])
+
+ggsave(filename = "Total Nuts baseline v3 HDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts basaline LDL
+
+VLDL <- read_excel("ICsTN_basal.xlsx", sheet = "LDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "C") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[8:1])
+
+ggsave(filename = "Total Nuts baseline v3 LDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts basaline BCAA
+
+VLDL <- read_excel("ICsTN_basal.xlsx", sheet = "BCAA")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "A") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[6:1])
+
+ggsave(filename = "Total Nuts baseline v3 BCAA barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts basaline LDL
+
+VLDL <- read_excel("ICsTN_basal.xlsx", sheet = "Otros")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "B") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[12:1])
+
+ggsave(filename = "Total Nuts baseline v3 Otros barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Walnuts basaline VLDL
+
+VLDL <- read_excel("ICsTN_basal_walnuts.xlsx", sheet = "VLDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  ylab ('Mean (95% IC)') +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "D") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[9:1])
+
+ggsave(filename = "Walnuts baseline v3 VLDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Walnuts basaline HDL
+
+VLDL <- read_excel("ICsTN_basal_walnuts.xlsx", sheet = "HDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "E") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[13:1])
+
+ggsave(filename = "Walnuts baseline v3 HDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Walnuts basaline LDL
+
+VLDL <- read_excel("ICsTN_basal_walnuts.xlsx", sheet = "LDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "F") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[8:1])
+
+ggsave(filename = "Walnuts baseline v3 LDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Walnuts basaline BCAA
+
+VLDL <- read_excel("ICsTN_basal_walnuts.xlsx", sheet = "BCAA")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "C") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[6:1])
+
+ggsave(filename = "Walnuts baseline v3 BCAA barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Walnuts basaline Otros
+
+VLDL <- read_excel("ICsTN_basal_walnuts.xlsx", sheet = "Otros")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "D") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[12:1])
+
+ggsave(filename = "Walnuts baseline v3 Otros barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts wihout walnut basaline VLDL
+
+VLDL <- read_excel("ICsTN_basal_without.xlsx", sheet = "VLDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  ylab ('Mean (95% IC)') +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "G") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[9:1])
+
+ggsave(filename = "Without baseline v3 VLDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts wihout walnut basaline HDL
+
+VLDL <- read_excel("ICsTN_basal_without.xlsx", sheet = "HDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "H") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[13:1])
+
+ggsave(filename = "Without baseline v3 HDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts wihout walnut basaline LDL
+
+VLDL <- read_excel("ICsTN_basal_without.xlsx", sheet = "LDL")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "I") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[8:1])
+
+ggsave(filename = "Without baseline v3 LDL barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts wihout walnut basaline BCAA
+
+VLDL <- read_excel("ICsTN_basal_without.xlsx", sheet = "BCAA")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "E") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[6:1])
+
+ggsave(filename = "Without baseline v3 BCAA barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
+```{r}
+#| label: Total nuts wihout walnut basaline Otros
+
+VLDL <- read_excel("ICsTN_basal_without.xlsx", sheet = "Otros")
+colnames(VLDL) = c("media", "bajo", "alto", "tercil", "nombres")
+
+VLDL$tercil = as.factor(VLDL$tercil)
+str(VLDL$tercil)
+levels(VLDL$tercil)
+
+g = ggplot (VLDL, aes(y = media, x = nombres, fill = (tercil)))
+g1 = g + theme_bw()
+g2 = g1 + geom_bar(position = "dodge", stat = "identity", size = 0.2, color="black", width = 0.7) +
+  coord_flip() +
+  geom_errorbar(aes(ymin =bajo , ymax = alto), width = 0.4, position=position_dodge(.7)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  labs(fill = NULL, tag = "F") +
+  scale_y_continuous(NULL) +
+  geom_hline(yintercept = 0) +
+  scale_x_discrete(NULL, limits = VLDL$nombres[12:1])
+
+ggsave(filename = "Without baseline v3 Otros barras.png", plot = g2, dpi = 320, units = "cm", width = 12, height = 10)
+```
+
