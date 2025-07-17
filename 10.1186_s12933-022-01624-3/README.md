@@ -41,13 +41,13 @@ Incluye:
 \- **R ≥ 3.6**\
 - Paquetes utilizados:
 
-\- **`haven`:** Leer y escribir datos de SPSS, Stata y SAS conservando las etiquetas de las variables para un análisis reproducible\
-- **`rio`:** Importar y exportar datos en decenas de formatos (CSV, SPSS, Stata, SAS, Excel, JSON, etc.) con las funciones `import()` y `export()` de forma unificada y sencilla\
-- **`RNOmni`:** Realizar pruebas de asociación genómica usando normalización por rangos inversa normal, ideal para datos de alto contenido genético\
-- **`missForest`:** Imputación no paramétrica de valores faltantes mediante bosques aleatorios, conservando relaciones no lineales entre variables\
-- **`readxl`:** Leer hojas de cálculo de Excel (.xls y .xlsx) directamente sin necesidad de Java, con detección automática de tipos de columna\
-- **`ggplot2`:** Implementa la gramática de gráficos (Grammar of Graphics) para crear visualizaciones elegantes, personalizables y componibles\
-- **`scales`:** Proporciona funciones para mapear, formatear y transformar datos en ejes y leyendas de gráficos (`continuous`, `discrete`, `date`, `percent`, etc.), facilitando el control de etiquetas y paletas de colores.
+    - **`haven`:** Leer y escribir datos de SPSS, Stata y SAS conservando las etiquetas de las variables para un análisis reproducible\
+    - **`rio`:** Importar y exportar datos en decenas de formatos (CSV, SPSS, Stata, SAS, Excel, JSON, etc.) con las funciones `import()` y `export()` de forma unificada y sencilla\
+    - **`RNOmni`:** Realizar pruebas de asociación genómica usando normalización por rangos inversa normal, ideal para datos de alto contenido genético\
+    - **`missForest`:** Imputación no paramétrica de valores faltantes mediante bosques aleatorios, conservando relaciones no lineales entre variables\
+    - **`readxl`:** Leer hojas de cálculo de Excel (.xls y .xlsx) directamente sin necesidad de Java, con detección automática de tipos de columna\
+    - **`ggplot2`:** Implementa la gramática de gráficos (Grammar of Graphics) para crear visualizaciones elegantes, personalizables y componibles\
+    - **`scales`:** Proporciona funciones para mapear, formatear y transformar datos en ejes y leyendas de gráficos (`continuous`, `discrete`, `date`, `percent`, etc.), facilitando el control de etiquetas y paletas de colores.
 
 ## Estructura del proyecto {#estructura-del-proyecto}
 
@@ -112,13 +112,13 @@ Includes:
 \- **R ≥ 3.6**\
 - Packages detailed in the libraries section of the `syntax` script:
 
-\- **`haven`:** Read and write data from SPSS, Stata, and SAS while preserving variable labels for reproducible analysis\
-- **`rio`:** Import and export data in dozens of formats (CSV, SPSS, Stata, SAS, Excel, JSON, etc.) with the `import()` and `export()` functions in a unified and simple way\
-- **`RNOmni`:** Perform genome-wide association tests using inverse normal rank normalization, ideal for data with high genetic content\
-- **`missForest`:** Nonparametric imputation of missing values using random forests, preserving nonlinear relationships between variables\
-- **`readxl`:** Read Excel spreadsheets (.xls and .xlsx) directly without Java, with automatic column type detection\
-- **`ggplot2`:** Implements the Grammar of Graphics to create elegant, customizable, and interactive visualizations\
-- **`scales`:** Provides functions for mapping, formatting, and transforming data on chart axes and legends (`continuous`, `discrete`, `date`, `percent`, etc), making it easy to control labels and color palettes.
+    - **`haven`:** Read and write data from SPSS, Stata, and SAS while preserving variable labels for reproducible analysis\
+    - **`rio`:** Import and export data in dozens of formats (CSV, SPSS, Stata, SAS, Excel, JSON, etc.) with the `import()` and `export()` functions in a unified and simple way\
+    - **`RNOmni`:** Perform genome-wide association tests using inverse normal rank normalization, ideal for data with high genetic content\
+    - **`missForest`:** Nonparametric imputation of missing values using random forests, preserving nonlinear relationships between variables\
+    - **`readxl`:** Read Excel spreadsheets (.xls and .xlsx) directly without Java, with automatic column type detection\
+    - **`ggplot2`:** Implements the Grammar of Graphics to create elegant, customizable, and interactive visualizations\
+    - **`scales`:** Provides functions for mapping, formatting, and transforming data on chart axes and legends (`continuous`, `discrete`, `date`, `percent`, etc), making it easy to control labels and color palettes.
 
 ## Project Structure {#project-structure}
 
