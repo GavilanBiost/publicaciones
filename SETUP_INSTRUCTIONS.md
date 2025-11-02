@@ -131,7 +131,7 @@ Once activated:
 
 ### 404 Error
 
-- If using the main user site (`gavilanbiost.github.io`), make sure this is your username.github.io repository
+- If using the main user site (`gavilanbiost.github.io`), make sure the repository is named exactly `gavilanbiost.github.io` (lowercase username)
 - If using as a project site, access it at `https://gavilanbiost.github.io/publicaciones`
 
 ### Workflow fails / El workflow falla
