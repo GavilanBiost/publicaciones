@@ -1,8 +1,3 @@
----
-layout: default
-title: Home
----
-
 # Publicaciones Científicas / Scientific Publications
 
 ## 🇪🇸 Español
