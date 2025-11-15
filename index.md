@@ -14,11 +14,11 @@ En cada carpeta identificada con un DOI, se puede encontrar el código de la pub
 
 ### 📊 Sobre los Datos
 
-Por cuestiones de tratamiento y protección de datos, las bases de datos de dichas publicaciones solo son accesibles bajo petición estricta al Steering Committee (SC) de cada estudio respectivo. 
+Por cuestiones de tratamiento y protección de datos, las bases de datos de dichas publicaciones solo son accesibles mediante petición estricta al Steering Committee (SC) de cada estudio. 
 
 En estos archivos **no se muestran las bases de datos** de ningún estudio. La forma de contacto con el SC de cada estudio está disponible en la respectiva publicación, a través de los autores de correspondencia.
 
-Las publicaciones bajo el dominio de **Open Access** están incluidas en su carpeta en formato PDF. Los archivos de imágenes que se indican en el código también están adjuntos y se identifican de la misma manera que aparecen en la publicación.
+Las publicaciones bajo el modelo de **Open Access** están incluidas en su carpeta en formato PDF. Los archivos de imagen que se indican en el código también están adjuntos y se identifican de la misma manera en que aparecen en la publicación.
 
 ### 📧 Contacto
 
