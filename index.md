@@ -40,9 +40,9 @@ The publication code is accessible within each folder identified by its DOI:
 
 ### 📊 About the Data
 
-For reasons related to data processing and protection, the databases associated with these publications are available only upon a stringent request to the Steering Committee (SC) of each respective study.
+For reasons related to data processing and protection, the databases associated with these publications are available only upon a formal request to the Steering Committee (SC) of each respective study.
 
-These files **do not include the databases** for any of the studies. The contact form for the SC of each study can be found in its respective publication, via the corresponding author.
+These files **do not include the databases** for any of the studies. The contact information for the SC of each study can be found in its respective publication, via the corresponding author.
 
 Publications made available under **Open Access** are included in their respective folders in PDF format. The image files referenced in the code are also provided and are identified in the same manner as they appear in the publication.
 
