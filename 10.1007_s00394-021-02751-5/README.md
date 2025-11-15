@@ -1,6 +1,6 @@
 ### Spanish
 
-# Asociación entre el índice inflamatorio de la dieta y la densidad mineral ósea
+# Inflammatory potential of diet and bone mineral density in a senior Mediterranean population: a cross-sectional analysis of PREDIMED-Plus study
 
 ## Código y material de apoyo al artículo
 
@@ -12,24 +12,26 @@ En este estudio se emplearon los siguientes métodos estadísticos:
 
 1. **Cálculo del Índice Inflamatorio de la Dieta (DII)**: Se calcularon puntuaciones z estandarizadas para 33 componentes dietéticos (nutrientes y compuestos bioactivos) a partir de cuestionarios de frecuencia alimentaria validados. Cada componente se estandarizó utilizando medias y desviaciones estándar de referencia globales. El DII final se obtuvo sumando los productos de cada puntuación z por su coeficiente inflamatorio específico.
 
-2. **Estratificación en tertiles**: Los participantes se clasificaron en tres grupos (tertiles) según su puntuación DII: bajo (dieta antiinflamatoria), medio y alto (dieta proinflamatoria).
+2. **Estratificación en tertiles**: Los participantes se clasificaron en tres grupos (tertiles) según su puntuación en el DII: bajo (dieta antiinflamatoria), medio y alto (dieta proinflamatoria).
 
 3. **Análisis descriptivo**: Se realizaron comparaciones de características basales entre tertiles mediante ANOVA para variables continuas y chi-cuadrado para variables categóricas.
 
-4. **Modelos de regresión lineal**: Se utilizaron modelos lineales para analizar la asociación entre tertiles de DII (variable independiente) y densidad mineral ósea (DMO) en diferentes sitios anatómicos (fémur total, trocánter y columna lumbar L1-L4). Los modelos se ajustaron progresivamente por:
+4. **Modelos de regresión lineal**: Se utilizaron modelos lineales para analizar la asociación entre los tertiles de DII (variable independiente) y la densidad mineral ósea (DMO) en diferentes sitios anatómicos (fémur total, trocánter y columna lumbar L1-L4). Los modelos se ajustaron progresivamente por:
    - Modelo crudo: solo DII
    - Modelo ajustado: edad, sexo, índice de masa corporal, tabaquismo, nivel educativo, actividad física, ingesta energética total, nodo de reclutamiento, diabetes, tratamientos farmacológicos (insulina, metformina, otros antidiabéticos, terapia hormonal) y suplementación con calcio/vitamina D
 
-5. **Modelos de regresión logística**: Se emplearon modelos logísticos para evaluar la asociación entre tertiles de DII y el riesgo de baja DMO (osteopenia o peor, definida como T-score ≤ -1), con los mismos ajustes que los modelos lineales.
+5. **Modelos de regresión logística**: Se emplearon modelos logísticos para evaluar la asociación entre los tertiles de DII y el riesgo de baja DMO (osteopenia o peor, definida como T-score ≤ -1), con los mismos ajustes que los modelos lineales.
 
-6. **Análisis de subgrupos**: Se realizaron análisis estratificados por edad (>70 vs <70 años), sexo, índice de masa corporal (>30 vs <30 kg/m²) y presencia de diabetes, presentando los resultados mediante forest plots.
+6. **Análisis de subgrupos**: Se realizaron análisis estratificados por edad (>70 vs <70 años), sexo, índice de masa corporal (>30 vs <30 kg/m²) y presencia de diabetes, y se presentaron los resultados mediante forest plots.
 
 7. **Verificación de supuestos**: Se utilizó el paquete `gvlma` para validar los supuestos de los modelos lineales (normalidad, homocedasticidad, independencia).
 
 Incluye:
 
-- Scripts en **R** para pre-procesar datos, calcular el DII, ajustar modelos y generar las figuras del artículo.
+- Scripts en **R** para preprocesar datos, calcular el DII, ajustar modelos y generar las figuras del artículo.
 - Imágenes finales (forest plots).
+
+> García-Gavilán JF, Paz-Graniel I, Babio N, Romaguera D, Martínez JA, Martin V, Martínez MÁ, Konieczna J, Ruiz-Canela M, de Paz Fernandez JA, Goday A, Martínez-González MÁ, Bulló M, Salas-Salvadó J. Inflammatory potential of diet and bone mineral density in a senior Mediterranean population: a cross-sectional analysis of PREDIMED-Plus study. Eur J Nutr. 2022 Apr;61(3):1445-1455. doi: 10.1007/s00394-021-02751-5. Epub 2021 Nov 29. PMID: 34842966; PMCID: PMC8921075.
 
 ## Contenidos
 
@@ -86,7 +88,7 @@ El proyecto se divide en las siguientes fases:
 
 ## Datos {#datos}
 
-Por cuestiones de tratamiento y protección de datos, las bases de datos de dichas publicaciones solo son accesibles bajo petición estricta al Steering Committee (SC) de cada estudio respectivo. En estos archivos no se muestran las bases de datos de ninguno de los estudios. La forma de contacto con el SC de cada estudio está disponible dentro de cada respectiva publicación a través de los autores de correspondencia. Así mismo, las publicaciones publicadas bajo dominio de Open Access están incluidas en su carpeta en formato PDF.
+Por cuestiones de tratamiento y protección de datos, las bases de datos de dichas publicaciones solo son accesibles bajo petición estricta al Steering Committee (SC) de cada estudio respectivo. En estos archivos no se muestran las bases de datos de ninguno de los estudios. La forma de contacto con el SC de cada estudio está disponible en la respectiva publicación, a través de los autores de correspondencia. Asimismo, las publicaciones bajo dominio de Open Access están incluidas en su carpeta en formato PDF.
 
 ## Licencia y citación {#licencia}
 
@@ -96,7 +98,7 @@ Licencia **GNU GENERAL PUBLIC LICENSE**
 
 ### English
 
-# Association between dietary inflammatory index and bone mineral density
+# Inflammatory potential of diet and bone mineral density in a senior Mediterranean population: a cross-sectional analysis of PREDIMED-Plus study
 
 ## Code and supporting material for the article
 
@@ -126,6 +128,8 @@ Includes:
 
 - **R** scripts to preprocess data, calculate DII, fit models, and generate the article's figures.
 - Final images (forest plots).
+
+> García-Gavilán JF, Paz-Graniel I, Babio N, Romaguera D, Martínez JA, Martin V, Martínez MÁ, Konieczna J, Ruiz-Canela M, de Paz Fernandez JA, Goday A, Martínez-González MÁ, Bulló M, Salas-Salvadó J. Inflammatory potential of diet and bone mineral density in a senior Mediterranean population: a cross-sectional analysis of PREDIMED-Plus study. Eur J Nutr. 2022 Apr;61(3):1445-1455. doi: 10.1007/s00394-021-02751-5. Epub 2021 Nov 29. PMID: 34842966; PMCID: PMC8921075.
 
 ## Contents
 
@@ -165,7 +169,7 @@ The project is divided into the following phases:
    - Between-group comparison tests (ANOVA, chi-square)
 
 4. **Phase 4: BMD Association Models (Tables 2, 3, and 4)**
-   - Linear regression for BMD at total femur, trochanter, and lumbar spine
+   - Linear regression for BMD at the total femur, trochanter, and lumbar spine
    - Crude and covariate-adjusted models
 
 5. **Phase 5: Low BMD Risk Models**
@@ -182,7 +186,7 @@ The project is divided into the following phases:
 
 ## Data {#data}
 
-For data processing and protection reasons, the databases of these publications are accessible only upon strict request to the Steering Committee (SC) of each respective study. The databases from any of the studies are not provided in these files. The contact form for each study's SC can be found within each publication through the corresponding authors. Publications released under Open Access are also included in their respective PDF folders.
+For data processing and protection reasons, the databases of these publications are accessible only upon strict request to the Steering Committee (SC) of each respective study. The databases from any of the studies are not provided in these files. The contact form for each study's SC is available in each publication via the corresponding author. Publications released under Open Access are also included in their respective PDF folders.
 
 ## License and Citation {#license}
 
