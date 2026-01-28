@@ -1,0 +1,45 @@
+name: Update README with Publications
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/README.md'
+      - '.github/workflows/update-readme.yml'
+      - 'scripts/update_readme.py'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Run update script
+        run: python scripts/update_readme.py
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code index.md || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push if changed
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add index.md
+          git commit -m "chore: auto-update index.md with publications"
+          git push
