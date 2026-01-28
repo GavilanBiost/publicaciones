@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '*/README.md'
+      - '**/README.md'
       - '.github/workflows/update-readme.yml'
       - 'scripts/update_readme.py'
   workflow_dispatch:

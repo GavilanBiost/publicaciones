@@ -12,19 +12,27 @@ from typing import List, Dict, Optional
 
 
 def extract_title_from_readme(readme_path: Path) -> Optional[str]:
-    """Extract the main title from a README file."""
+    """Extract the main title from a README file by reading line by line."""
     try:
         with open(readme_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            # Look for the first # heading after "Spanish" or at the beginning
-            match = re.search(r'^#\s+(.+?)$', content, re.MULTILINE)
-            if match:
-                title = match.group(1).strip()
-                # Remove markdown links and extra formatting
-                title = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', title)
-                return title
-    except Exception as e:
+            # Read line by line for efficiency
+            for line in f:
+                stripped = line.strip()
+                # Look for the first level-1 heading (single # at start)
+                # Skip section markers like "### Spanish" or "### English"
+                if stripped.startswith('# ') and not stripped.startswith('## '):
+                    # Extract title after # symbol
+                    title = stripped[2:].strip()
+                    # Remove markdown links and extra formatting
+                    title = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', title)
+                    # Sanitize and validate the title
+                    if title and len(title) <= 200:  # Reasonable title length limit
+                        return title
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         print(f"Warning: Could not read {readme_path}: {e}")
+    except Exception as e:
+        print(f"Error: Unexpected error reading {readme_path}: {e}")
+        raise
     return None
 
 

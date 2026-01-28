@@ -21,7 +21,7 @@ Este repositorio cuenta con un sistema automático que actualiza el archivo `ind
 
 Para añadir una nueva publicación:
 
-1. Crea una nueva carpeta con el formato DOI: `10.XXXX_YYYY` (reemplaza `/` con `_` y `.` según el patrón existente)
+1. Crea una nueva carpeta con el formato DOI: `10.XXXX_YYYY` (reemplaza la barra `/` después del prefijo con un guion bajo `_`. Mantén todos los puntos tal como están. Ejemplo: DOI `10.1234/example.567` se convierte en carpeta `10.1234_example.567`)
 2. Añade el código R, materiales suplementarios y un archivo `README.md` con:
    - Un título principal (línea que comienza con `#`)
    - La descripción de la publicación
@@ -59,7 +59,7 @@ This repository has an automatic system that updates the `index.md` file every t
 
 To add a new publication:
 
-1. Create a new folder with DOI format: `10.XXXX_YYYY` (replace `/` with `_` and `.` according to existing pattern)
+1. Create a new folder with DOI format: `10.XXXX_YYYY` (replace the slash `/` after the prefix with an underscore `_`. Keep all dots as-is. Example: DOI `10.1234/example.567` becomes folder `10.1234_example.567`)
 2. Add R code, supplementary materials, and a `README.md` file with:
    - A main title (line starting with `#`)
    - The publication description
