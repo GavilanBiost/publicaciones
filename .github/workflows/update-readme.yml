@@ -5,9 +5,13 @@ on:
     branches:
       - main
     paths:
-      - '**/README.md'
-      - '.github/workflows/update-readme.yml'
+      - '10.*/**'
       - 'scripts/update_readme.py'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '10.*/**'
   workflow_dispatch:
 
 jobs:
@@ -33,13 +37,25 @@ jobs:
       - name: Check for changes
         id: git-check
         run: |
-          git diff --exit-code index.md || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --exit-code README.md || echo "changed=true" >> $GITHUB_OUTPUT
       
       - name: Commit and push if changed
-        if: steps.git-check.outputs.changed == 'true'
+        if: steps.git-check.outputs.changed == 'true' && github.event_name == 'push'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add index.md
-          git commit -m "chore: auto-update index.md with publications"
+          git add README.md
+          git commit -m "chore: auto-update README.md with publications"
           git push
+      
+      - name: Comment on PR if changes needed
+        if: steps.git-check.outputs.changed == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ El archivo README.md necesita ser actualizado. Ejecuta `python3 scripts/update_readme.py` localmente.'
+            })
