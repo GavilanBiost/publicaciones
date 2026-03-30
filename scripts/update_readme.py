@@ -152,7 +152,7 @@ This repository is licensed under the GNU General Public License v3.0. Please ta
 
 
 def main():
-    """Main function to update index.md"""
+    """Main function to update README.md"""
     repo_path = Path(__file__).parent.parent
     
     print("Scanning repository for publication folders...")
@@ -162,13 +162,13 @@ def main():
     print("Generating README content...")
     readme_content = generate_readme_content(publications)
     
-    # Update index.md (the main file for this repository)
-    index_path = repo_path / 'index.md'
-    print(f"Writing to {index_path}...")
-    with open(index_path, 'w', encoding='utf-8') as f:
+    # Update README.md (the main file for this repository)
+    readme_path = repo_path / 'README.md'
+    print(f"Writing to {readme_path}...")
+    with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(readme_content)
     
-    print("index.md updated successfully!")
+    print("README.md updated successfully!")
 
 
 if __name__ == '__main__':

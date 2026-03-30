@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - '10.*_**'
+      - '10.*/**'
       - 'scripts/update_readme.py'
   pull_request:
     branches:
