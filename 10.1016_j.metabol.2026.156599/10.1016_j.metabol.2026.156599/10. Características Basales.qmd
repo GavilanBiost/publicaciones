@@ -1,0 +1,34 @@
+---
+title: "10. Características Basales"
+format: html
+---
+
+# 9. Características basales:
+
+```{r}
+BBDDmet$cens.x = ifelse(BBDDmet$cens.y == 1, "Diabetic", "Non-Diabetic")
+BBDDmet$death19 = ifelse(BBDDmet$death19 == 1, TRUE, FALSE)
+BBDDmet$sexo = ifelse(BBDDmet$sexo == "mujer", "Woman", "Man")
+BBDDmet$hta0.x = ifelse(BBDDmet$hta0.y == 1, "Yes", "No")
+BBDDmet$hipercol0.x = ifelse(BBDDmet$hipercol0.y == 1, "Yes", "No")
+BBDDmet$fum = factor(BBDDmet$fum,
+                     levels = c("0", "1", "2"),
+                     labels = c("Never", "Current", "Former"))
+BBDDmet$grup_int = factor(BBDDmet$grup_int,
+                     levels = c("1", "2", "3"),
+                     labels = c("MedDiet + VOO", "MedDiet + NUTS", "Control"))
+
+vars = c("death19","edad0", "sexo", "imc1", "ant_fam", "fum", "hta0.x", "hipercol0.x","grup_int", "p14", "energiat", "alcoholg", "getota_1.x", "hdl1","ldl1","col1", "TG","glucose0_0")
+
+table1 = CreateTableOne(vars = vars, strata = "cens.x", data = BBDDmet, test = TRUE)
+table1_df = print(table1, quote = FALSE, noSpaces = TRUE, printToggle = FALSE)
+table1_df = data.frame(Variable = rownames(table1_df), table1_df, row.names = NULL)
+
+wb = createWorkbook()
+addWorksheet(wb, "TableOne")
+
+writeData(wb, "TableOne", table1_df)
+saveWorkbook(wb, file = "tabla_comparativa.xlsx", overwrite = TRUE)
+
+rm(vars, wb, table1, table1_df)
+```

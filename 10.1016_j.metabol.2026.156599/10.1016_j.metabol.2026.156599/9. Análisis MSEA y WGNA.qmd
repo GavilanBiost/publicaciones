@@ -1,0 +1,490 @@
+---
+title: "9. Análisis MSEA y WGNA"
+format: html
+---
+
+# 8. Análisis MSEA y WGNA:
+
+## 8.1. WGNA:
+
+```{r}
+# DF con los metabolitos de interés con el orden de serie:
+df = merge(DT2, HOMA, by = "Metabolites", all = T, sort = F) # se pueden ver los metabolitos comunes
+
+# Selección de los valores de los metabolitos de interés:
+keep = intersect(df$Metabolites, names(BBDDmet))
+met2 = BBDDmet[, keep, drop = F]
+
+# Soft-threshold
+set.seed(1111)
+power = c(1:10, seq(12, 20, 2))
+# Calculo el umbral:
+sft = pickSoftThreshold(met2, dataIsExpr = T, powerVector = powers, networkType = "signed",
+                        RsquaredCut = 0.8)
+# Creo la imagen con el análisis del umbral:
+png("Soft-thresholding power.png", width = 30, height = 20, res = 300, unit = "cm")
+par(mfrow = c(1,2), oma = c(1,1,1,1), mar = c(4,4,4,1))
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3]) * sft$fitIndices[,2], 
+     xlab = "Soft Threshold (power)", ylab = "Scale Free Topology Model Fit, signed R^2",
+     type = "n", main = "Scale independence")
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3]) * sft$fitIndices[,2], labels = powers, cex = 0.6, col = "red")
+abline(h = 0.80, col = "red")
+plot(sft$fitIndices[,1], sft$fitIndices[,5], xlab = "Soft Threshold (power)", 
+     ylab = "Mean Connectivity", type = "n", main = "Mean connectivity")
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels = powers, cex = 0.6, col = "red")
+dev.off()
+
+softPower = sft$powerEstimate # 8
+
+# Cálculo del TOM y clusterización:
+# Matriz de adyacencia:
+adj = adjacency(met2, power = softPower, type = "signed")
+TOM = TOMsimilarityFromExpr(met2, networkType = "signed", TOMType = "signed", power = softPower,
+                            corType = "pearson")
+
+# Cálculo de las distancias:
+disTOM = 1 - TOM
+
+# Creación del dendograma:
+arbol2 = hclust(as.dist(disTOM), method = "average")
+
+# Gráfica con el dendograma:
+png("Clusterización.png", width = 30, height = 20, res = 300, unit = "cm")
+plot(arbol2, xlab = "", sub = "", main = "Clustering on TOM-based dissimilarity baseline",
+     labels = F, hang = 0.04)
+dev.off()
+
+minModuleSize = 5
+
+dynamicMods = cutreeDynamic(dendro = arbol2, distM = disTOM, deepSplit = 2, pamRespectsDendro = F,
+                            method = "hybrid", pamStage = T, minClusterSize = minModuleSize)
+
+table(dynamicMods)
+dynamicColors = labels2colors(dynamicMods)
+table(dynamicColors)
+
+# Gráfica con la clusterización por colores y el dendograma:
+png("Clusterización colores.png", width = 30, height = 20, res = 300, unit = "cm")
+plotDendroAndColors(arbol2, dynamicColors, "Dynamic Tree Cut", dendroLabels = F, hang = 0.03,
+                    addGuide = T, guideHang = 0.05, main = "Metabolite cluster dendogram and module colors")
+dev.off()
+
+# Cálculo de los eigengenes (valores de los módulos):
+MEList = moduleEigengenes(met2, dynamicColors)$eigengenes
+
+#hhh = data.frame(names = HMDB_diabyhoma$names, HMDB = HMDB_diabyhoma$HMDB, module = dynamicMods, colour = dynamicColors)
+#hhh = merge(hhh, HMDB_diabyhoma, by = "names", sort = F)
+
+met_expr = met2
+# Excluyo el modulos gris (metabolitos no relacionados a ningún módulo):
+mods = setdiff(unique(dynamicColors), "grey")
+
+# Cálculo de los loadings (PC1) por módulo y gráfico:
+loadings_df = NULL
+for (i in seq_along(mods)){
+  col = mods[i] # selección del color en la lista
+  idx = which(dynamicColors == col) # selección de la posición
+  X = as.matrix(met_expr[, idx, drop = F]) # matriz con los metabolitos del color
+  
+  # Ejecuto el modelo escalando los valores
+  pc = prcomp(X, center = T, scale. = T)
+  
+  # Cargo y guardo los loads de cada metabolito:
+  load1 = pc$rotation[, 1]
+  score1 = pc$x[, 1]
+  
+  # Alineo el signo con el eigengene del módulo:
+  me_col = MEList[, paste0("ME", col)]
+  sgn = sign(cor(score1, me_col, use = "pairwise.complete.obs"))
+  if (is.na(sgn) || sgn < 0) load1 = -load1 # ajusta el signo de los loadings
+  
+  # Creo un df con los loadings
+  tmp = data.frame(Metabolite = colnames(met_expr)[idx], Loading = as.numeric(load1),
+                   Module = col, stringsAsFactors = F)
+  
+  tmp$Metabolite = factor(tmp$Metabolite, levels = colnames(met_expr)[idx])
+  
+  png(filename = paste0("Loadings_modulo_", col, ".png"), width = 20, height = 10, 
+      res = 300, unit = "cm")
+
+  print(ggplot(tmp %>% mutate (Metabolite = factor(tolower(Metabolite), levels = tolower(Metabolite)[order(-Loading)])),
+               aes(x = Metabolite, y = Loading, fill = Module)) +
+          geom_col(fill = col, show.legend = F, width = 0.85) +
+          geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
+          labs(x = "", y = "Loadings (PC1)") +
+          theme_minimal(base_size = 11) +
+          theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(),
+                axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 10),
+                strip.text = element_text(face = "bold")))
+  dev.off()
+  
+  # df que va acumulando los resultados
+  loadings_df = if (is.null(loadings_df)) tmp else rbind(loadings_df, tmp)
+}
+
+# Estandarizo los módulos:
+modules = colnames(MEList)
+for (i in seq_along(modules)){
+  temp = modules[i]
+  MEList[, temp] = (MEList[, temp] - mean(MEList[, temp]))/sd(MEList[, temp])
+}
+
+# Creo un df con los metabolitos para el análisis posterior:
+met2 = cbind(BBDDmet_20250129, MEList)
+
+# Genero un df con los colores:
+modulos = data.frame(Metabolites = df$Metabolites, nColores = dynamicColors)
+
+# Le uno la información de match_names:
+modulos = merge(modulos, match_names, by = "Metabolites", sort = F, all.x = T)
+
+# Exporto el resultado:
+export(modulos, "../../3. Borrador Art/2. Draft/4. Mat Sup/20250826_Supplemental Data 2.xlsx")
+
+```
+
+### Modelos de Cox con los módulos:
+
+```{r}
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:length(modules)){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", modules[i], 
+                                         "+ cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14)"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = met2, robust = F)
+  
+}
+
+# GET RESULTS for death
+results_all <- data.frame(matrix(NA, length(modules), 5))
+rownames(results_all) <- modules
+colnames(results_all)<-c("HR", "LCI", "UCI", "HR (95%CI)", "P_value")
+
+for (i in 1:length(modules)){
+  get_data_sum <- summary(fit_model3[[i]])
+  hr_data <- get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  results_all[i,1] <- format(round(hr_data[1], 2), nsmall=2)
+  results_all[i,2] <- format(round(hr_data[2], 2), nsmall=2)
+  results_all[i,3] <- format(round(hr_data[3], 2), nsmall=2)
+  results_all[i,5] <- format(round(get_data_sum$coefficients[1,5], 3), nsmall=3)  # Pvalue
+  results_all[i,4] <- paste(results_all[i,1], " (", results_all[i,2], ", ", results_all[i,3], ")", sep="")
+}
+rownames(results_all) = modules
+results_all$names = rownames(results_all)
+export(results_all, "20250131_WGNA_Cox_mortalidad.xlsx")
+
+pvals = as.numeric(results_all$P_value)
+p.adjust(pvals, method = "fdr")
+```
+
+### Modelos de Cox con los metabolitos de forma individual:
+
+```{r}
+
+met3 = BBDDmet[,(names(BBDDmet) %in% df$Metabolites)]
+met3 = cbind(BBDDmet[1:116], BBDDmet[706:727], met3)
+
+aproaches = names(BBDDmet[,(names(BBDDmet) %in% df$Metabolites)])
+
+formu_model3 <- list()
+fit_model3 <- list()
+
+for (i in 1:length(aproaches)){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", aproaches[i], 
+                                         "+ cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14)"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = met2, robust = F)
+  
+}
+
+# GET RESULTS for death
+results_all <- data.frame(matrix(NA, length(aproaches), 5))
+rownames(results_all) <- aproaches
+colnames(results_all)<-c("HR", "LCI", "UCI", "HR (95%CI)", "P_value")
+
+for (i in 1:length(aproaches)){
+  get_data_sum <- summary(fit_model3[[i]])
+  hr_data <- get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  results_all[i,1] <- format(round(hr_data[1], 2), nsmall=2)
+  results_all[i,2] <- format(round(hr_data[2], 2), nsmall=2)
+  results_all[i,3] <- format(round(hr_data[3], 2), nsmall=2)
+  results_all[i,5] <- format(round(get_data_sum$coefficients[1,5], 3), nsmall=3)  # Pvalue
+  results_all[i,4] <- paste(results_all[i,1], " (", results_all[i,2], ", ", results_all[i,3], ")", sep="")
+}
+rownames(results_all) = aproaches
+results_all$Metabolites = rownames(results_all)
+export(results_all, "20250131_WGNA_Cox_mortalidad_ind.xlsx")
+```
+
+### Figura de los metabolitos individuales en los módulos:
+
+```{r}
+modulos = merge(modulos, results_all, by = "Metabolites")
+modulos$HR = log(as.numeric(modulos$HR))
+
+modulos = subset(modulos, nColores != "grey")
+
+# Crear la gráfica de dispersión
+png(filename = "Figure 4 A.png", width = 25, height = 15, res=300, unit="cm")
+set.seed(1)
+ggplot(modulos, aes(x = HR, y = factor(nColores), color = factor(nColores)))  +
+  geom_jitter(size = 6, shape = 21, height = 0.3,  stroke = 1, color = "black", fill = factor(modulos$nColores)) +
+  scale_color_manual(values = c("blue", "brown", "green", "red", "turquoise", "yellow"))+
+  labs(x = "Log(HR)", y = "Module", title = "Associations between metabolites included in \nWGCNA modules and total mortality") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        text = element_text(family = "sans", size = 15),  # Cambiar el tipo de letra globalmente
+        axis.title = element_text(family = "sans", size = 13),
+        axis.text = element_text(family = "sans", size = 12))  +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_discrete(labels = c("blue" = "Module 6", "brown" = "Module 5", "green" = "Module 4",
+                              "red" = "Module 3", "turquoise" = "Module 2", "yellow" = "Module 1"))
+dev.off()
+```
+
+### Reg logisticas con los modulos:
+
+```{r}
+#Modulos:
+met2_long = subset(met2, nuevo > 0)
+met2_long$nuevo = as.factor(met2_long$nuevo)
+table(met2_long$nuevo)
+table(met2_long$death19)
+table(met2_long$cens.x, met2_long$death19)
+
+#Metabolitos:
+met3_long = subset(met3, nuevo > 0)
+met3_long$nuevo = as.factor(met3_long$nuevo)
+table(met3_long$nuevo)
+table(met3_long$death19)
+table(met3_long$cens.x, met3_long$death19)
+```
+
+```{r}
+m2.1 = clogit(as.numeric(nuevo) ~  MEblue + cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEbrown + cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEgreen + cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEgrey * cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEred + cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEturquoise * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(as.numeric(nuevo) ~  MEyellow + cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = met2_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+```
+
+### Modelos logisticos con los metabolitos de forma individual:
+
+```{r}
+formu_model3 <- list()
+fit_model3 <- list()
+
+for (i in 1:length(aproaches)){
+  formu_model3[[i]] = as.formula(paste0("as.numeric(nuevo) ~ ", aproaches[i], 
+                                         "* cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14)"))
+  fit_model3[[i]] = clogit(formu_model3[[i]], weights=w, data = met2_long,method = "breslow")
+  
+}
+
+# GET RESULTS
+results_all <- data.frame(matrix(NA, length(aproaches), 5))
+rownames(results_all) <- aproaches
+colnames(results_all)<-c("OR", "LCI_OR", "UCI_OR", "OR (95%CI)", "P_value_OR")
+
+for (i in 1:length(aproaches)){
+  get_data_sum <- summary(fit_model3[[1]])
+  hr_data <- get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  results_all[i,1] <- format(round(coef(fit_model3[[i]])[1],2), nsmall=2)
+  results_all[i,2] <- format(round(t((confint(fit_model3[[i]]))[1,1]),2), nsmall=2)
+  results_all[i,3] <- format(round(t((confint(fit_model3[[i]]))[1,2]),2), nsmall=2)
+  results_all[i,5] <- format(round(summary(fit_model3[[i]])$coefficients[1,6],3), nsmall=3)  # Pvalue
+  results_all[i,4] <- paste(results_all[i,1], " (", results_all[i,2], ", ", results_all[i,3], ")", sep="")
+}
+rownames(results_all) = aproaches
+results_all$Metabolites = rownames(results_all)
+export(results_all, "20250131_WGNA_clogit_mortalidad_ind.xlsx")
+```
+
+### Figura de los metabolitos individuales en los módulos:
+
+```{r}
+modulos = merge(modulos, results_all, by = "Metabolites")
+export(modulos, "20250131_ggplot.xlsx")
+modulos$OR = as.numeric(modulos$OR)
+
+# Crear la gráfica de dispersión
+png(filename = "Figure 4B.png", width = 25, height = 15, res=300, unit="cm")
+set.seed(2)
+ggplot(modulos, aes(x = OR, y = factor(nColores), color = factor(nColores)))  +
+  geom_jitter(size = 6, shape = 21, height = 0.3, width = 0.1, stroke = 1, color = "black", fill = factor(modulos$nColores)) +
+  scale_color_manual(values = c("blue", "brown", "green", "red", "turquoise", "yellow"))+
+  labs(x = "Log(OR)", y = "Module", title = "Associations between metabolites and longevity in WGCNA modules") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        text = element_text(family = "sans", size = 15),  # Cambiar el tipo de letra globalmente
+        axis.title = element_text(family = "sans", size = 13),
+        axis.text = element_text(family = "sans", size = 12))  +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", size = 1) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_discrete(labels = c("blue" = "Module 6", "brown" = "Module 5", "green" = "Module 4", 
+                              "red" = "Module 3", "turquoise" = "Module 2", "yellow" = "Module 1"))
+dev.off()
+```
+
+```{r}
+rm(aproaches, avg, dynamicColors, dynamicMods, eigenvectors, hr_data, i, minModuleSize, modules, powers, sd, softPower, temp,  TOMna, TOM, sft, results_all, pca_result, scores, m2.1, hhh, HMDB_diabyhoma, get_data_sum, formu_model3, fit_model3, DT2, disTOM, disTOMna, df, arbol2, adj, MEList)
+```
+
+## 8.2. MSEA: diabetes:
+
+Preparamos las BBDD:
+
+```{r}
+DT2 = read_excel("2. Resultados/2. datos/Only coef_binomial_diabetes.xlsx")
+HOMA = read_excel("2. Resultados/2. datos/Only coef_gaussian_HOMA.xlsx")
+```
+
+### Mortalidad:
+
+```{r}
+results_all=merge(modulos[,c("Metabolites", "HR")], match_names[,c("Metabolites", "Class")],all.x=T)
+cate=unique(results_all$Class)
+
+cate_list_all=list()
+for (i in 1:length(cate)){
+  temp=cate[i]
+  cate_list_all[[i]]=results_all %>% filter(Class == temp) %>% pull(Metabolites)
+}
+names(cate_list_all)=cate
+estimate_all=exp(results_all$HR)
+names(estimate_all)=results_all$Metabolites
+estimate_all=sort(estimate_all, decreasing = T)
+set.seed(10)
+fgsea_all_HR = fgsea(pathways = cate_list_all, 
+                   stats = estimate_all, 
+                   minSize=1, maxSize=50,
+                   nperm = 10000) %>% arrange(NES) 
+fgsea_all_HR$leadingEdge= as.character(fgsea_all_HR$leadingEdge)
+fgsea_all_HR
+#export(fgsea_all_HR, "20250204_fgsea_all_HR.xlsx")
+```
+
+### Longevidad:
+
+```{r}
+results_all=merge(modulos[,c("Metabolites", "OR")], match_names[,c("Metabolites", "Class")],all.x=T)
+cate=unique(results_all$Class)
+
+cate_list_all=list()
+for (i in 1:length(cate)){
+  temp=cate[i]
+  cate_list_all[[i]]=results_all %>% filter(Class == temp) %>% pull(Metabolites)
+}
+names(cate_list_all)=cate
+estimate_all=exp(results_all$OR)
+names(estimate_all)=results_all$Metabolites
+estimate_all=sort(estimate_all, decreasing = T)
+set.seed(10)
+fgsea_all_OR = fgsea(pathways = cate_list_all, 
+                   stats = estimate_all, 
+                   minSize=1, maxSize=50,
+                   nperm = 10000) %>% arrange(NES) 
+fgsea_all_OR$leadingEdge= as.character(fgsea_all_OR$leadingEdge)
+fgsea_all_OR
+#export(fgsea_all_OR, "20250204_fgsea_all_OR.xlsx")
+```
+
+### Figuras
+
+```{r}
+fgsea_all_HR$study = "Total mortality"
+#fgsea_all_OR$study = "Longevity"
+#ggplot2 = rbind(fgsea_all_HR, fgsea_all_OR)
+fgsea_all_HR$sig = ifelse(fgsea_all_HR$pval <0.05 & fgsea_all_HR$NES >0, TRUE, FALSE)
+fgsea_all_HR$sig1 = ifelse(fgsea_all_HR$pval <0.05 & fgsea_all_HR$NES <0, TRUE, FALSE)
+
+png(filename = "Figure 5.png", width = 15, height = 25, res=300, unit="cm")
+ggplot (fgsea_all_HR, aes(y = NES, x = pathway, fill = (study))) + # Añadir un rectángulo con annotate 
+  geom_bar(position = "dodge", stat = "identity", size = 1, color="black", width = 0.7) + #tipo de figura y marco negro entorno a las barras
+  geom_vline(xintercept = seq_along(unique(fgsea_all_HR$pathway)) - 0.5, color="gray", size=0.5) +
+  coord_flip() + #cambio a horizontal
+  labs(x=" ", y="Normalized Enrichment Score",
+       title="Metabolite set enrichment analysis",
+       fill = NULL) + 
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(breaks = seq(-2, 2, by = 0.5), labels = seq(-2, 2, by = 0.5)) +
+  geom_text(data=subset(fgsea_all_HR, sig == TRUE), 
+            aes(label="*"),  # Asterisco a la altura de 2
+            position=position_dodge(width=0.9), 
+            hjust= -1, color="black", size=5) + # Ajusta la posición del asterisco a la derecha
+  geom_text(data=subset(fgsea_all_HR, sig1 == TRUE), 
+            aes(label="*"),  # Asterisco a la altura de -2
+            position=position_dodge(width=0.9), 
+            hjust= 1.5, color="black", size=5) + 
+  theme(panel.background = element_blank(), # Elimina el fondo del panel
+        plot.background = element_blank(),  # Elimina el fondo del gráfico
+        panel.grid.major = element_blank(), # Elimina las líneas de la cuadrícula principal
+        panel.grid.minor = element_blank(),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        axis.text.y = element_text(face = "bold")) + 
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, color = "black", fill = NA, linewidth = 0.5)
+dev.off()
+```
+
+```{r}
+rm(ggplot2, fgsea_all_HR, fgsea_all_OR, cate_list_all, results_all, topPathways, cate, estimate_all, i, temp, modulos, DT2, HOMA)
+```

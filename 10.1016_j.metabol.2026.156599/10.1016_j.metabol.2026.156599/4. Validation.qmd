@@ -1,0 +1,83 @@
+---
+title: "4. Validation"
+format: html
+---
+
+# 3. Validación 1 año:
+
+### Creación de los Scores:
+
+### Diabetes:
+
+```{r}
+# Cargo los metabolitos:
+met = read_excel("2. Resultados/2. datos/Only coef_binomial_diabetes.xlsx")
+
+# Añadimos "1" al final de cada valor de la columna
+met$Metabolites <- paste0(met$Metabolites, "1")
+
+X2 = data.frame(BBDDmet1[117:705])
+b = met
+
+if (length(b) != 0) {
+  stdout  = vector('character')
+  con = textConnection('stdout', 'wr', local = TRUE)
+  sink(con)
+  for (i in 1:(dim(b)[1]))
+  {
+    if (i == 1) {cat("X2$model=", sep="")}
+    if ((i < (dim(b)[1])) & (i > 0)) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")"," +", "\n", sep="")}
+    if (i == (dim(b)[1])) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")", sep="")}
+  }
+  sink()
+  
+  close(con)
+  
+  stdout_full = paste(unlist(stdout), collapse =" ")
+  stdout_full[1]
+  
+  eval(parse(text=stdout_full[1]))
+} 
+
+BBDDmet1$diab_est = X2$model
+
+roc(BBDDmet1$cens, BBDDmet1$diab_est, ci=TRUE) #0.87 (0.84, 0.90)
+cor.test(BBDDmet1$cens, BBDDmet1$diab_est) #0.58 (0.52, 0.63)
+```
+
+### HOMA:
+
+```{r}
+met = read_excel("2. Resultados/2. datos/Only coef_gaussian_HOMA.xlsx")
+
+met$Metabolites <- paste0(met$Metabolites, "1")
+
+X2 = data.frame(BBDDmet1[117:705])
+b = met
+
+if (length(b) != 0) {
+  stdout  = vector('character')
+  con = textConnection('stdout', 'wr', local = TRUE)
+  sink(con)
+  for (i in 1:(dim(b)[1]))
+  {
+    if (i == 1) {cat("X2$model=", sep="")}
+    if ((i < (dim(b)[1])) & (i > 0)) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")"," +", "\n", sep="")}
+    if (i == (dim(b)[1])) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")", sep="")}
+  }
+  sink()
+  
+  close(con)
+  
+  stdout_full = paste(unlist(stdout), collapse =" ")
+  stdout_full[1]
+  
+  eval(parse(text=stdout_full[1]))
+} 
+
+BBDDmet1$HOMA_est = X2$model
+
+cor.test(BBDDmet1$HOMA_est, BBDDmet1$homa0_0) # 0.60 (0.54, 0.65)
+
+rm(b, met, X2, con, i, stdout, stdout_full)
+```

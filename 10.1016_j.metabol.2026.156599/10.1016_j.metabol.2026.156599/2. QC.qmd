@@ -1,0 +1,195 @@
+---
+title: "2. QC"
+format: html
+---
+
+## 1.1 QC base de datos basal:
+
+Abro la base de datos (ojo, en el cuadro de quarto no funciona el directorio relativo. Utilizar la consola para cargar el archivo):
+
+```{r}
+T2D_HOMA_met_new = read_excel("data/T2D_HOMA_met_new.xlsx")
+```
+
+Preparo la base de datos para realizar el QC:
+
+```{r}
+# Miro las posiciones de las variables de interés:
+#colnames(T2D_HOMA_met_new)
+#colnames(T2D_HOMA_met_new)[1000:1361]
+
+# Creo una base de datos con solo los metabolitos basales:
+short_db=cbind(id=T2D_HOMA_met_new[,1],
+                T2D_HOMA_met_new[,118:737]) 
+
+# Elimino los metabolitos de control, medicamentos y aditivos alimentarios 
+drop = c("c240pc","glycocholated4","thymined4","inosine15n4","phenylalanined8","valined8", #QC
+          "acetaminophen","atenolol","gabapentin","metformin","metronidazole","valsartan","verapamil","warfarin",#Drugs
+          "quinine","sulfamethoxazole",#Drugs
+          "cyclohexylamine","nacetylcysteinylacetaminoph") #food additives
+short_db = short_db[,!(names(short_db) %in% drop)]
+```
+
+Valoro y elimino los participantes con exceso de missings:
+
+```{r, include = F}
+colnames(short_db)
+
+# Cuantifico cuantos NAs hay por persona:
+otra = cbind(id = short_db$id, NAs = rowSums(is.na(short_db)))
+# No hay participantes con un valores superiores al 20% en missings de metabolitos
+```
+
+valoro y elimino los metabolitos con un exceso de missings:
+
+```{r}
+# Creo un nuevo data frame para valorar los NAs en los metabolitos:
+quantitative_variables=short_db[,2:(length(short_db))]
+
+# Creo un data frame que me cuantifique los NAs y el porcentaje por metabolito:
+na_count = cbind(
+  "NA" = sapply(quantitative_variables, function(x) sum(is.na(x))),
+  "% NA" = sapply(quantitative_variables, function(x) 100 * mean(is.na(x))))
+
+# Creo una variable con los metabolitos con más de un 20% de NAs:
+drop = rownames(na_count[na_count[,2]>20 ,])
+
+# Exporto los metabolitos para que queden registrados:
+#export(data.frame(drop), "D:/Trabajo/UNH/Articulos/1. En Preparación/1. Articulos/1. Autor/PREDIMED/ART Metabolitos Diab - Mortalidad/data/drop_metabolitos.xlsx")
+
+# Elimino de la base de datos los metabolitos antes de imputar los NAs:
+quantitative_variables_filtered = quantitative_variables[,!(names(quantitative_variables) %in% drop)]
+```
+
+Imputación: Comienzo con el proceso de imputación de la base de datos basal.
+
+```{r, include=F}
+# Planto la semilla:
+set.seed(1)
+
+# Utilizo el algoritmo missForest para imputar los valores
+IMP = missForest(as.matrix(quantitative_variables_filtered), verbose = T)
+
+# Miro por pantalla el error obtenido:
+IMP$OOBerror #0.045 --> error de imputación muy bajo (menor de 0.2)
+
+# Creo un data frame con los datos imputados:
+IMP = data.frame(IMP$ximp)
+
+# Compruebo los nombres:
+colnames(IMP)
+```
+
+Normalización: inicio el proceso de normalización de la visita basal. Como en papers previos, procedo a utilizar la normalización ranknorm.
+
+```{r}
+# Aplico el algoritmo a toda la base de datos:
+IMP = apply(IMP, 2, RankNorm)
+
+# Añado la columna de ids:
+BBDDmet = data.frame(cbind(short_db[1], IMP))
+
+# Fusiono la base de datos de metabolitos con los datos de T2D:
+BBDDmet = merge(T2D_HOMA_met_new[1:116], BBDDmet, by = "id")
+
+#colnames(BBDDmet)
+
+# Exporto la base de datos:
+#export(BBDDmet, "D:/Trabajo/UNH/Articulos/1. En Preparación/1. Articulos/1. Autor/PREDIMED/ART Metabolitos Diab - Mortalidad/data/20250109_BBDDmet_rkn_HOMA_basal.xlsx")
+```
+
+## 1.2 QC base de datos anual:
+
+Preparo la base de datos para realizar el QC:
+
+```{r}
+# Miro las posiciones de las variables de interés:
+#colnames(T2D_HOMA_met_new)
+#colnames(T2D_HOMA_met_new)[1000:1361]
+
+# Creo una base de datos con solo los metabolitos basales:
+short_db=cbind(id=T2D_HOMA_met_new[,1],
+                T2D_HOMA_met_new[,738:1357]) 
+
+# Elimino los metabolitos de control, medicamentos y aditivos alimentarios 
+drop = c("c240pc1","glycocholated41","thymined41","inosine15n41","phenylalanined81","valined81", #QC
+          "acetaminophen1","atenolol1","gabapentin1","metformin1","metronidazole1","valsartan1","verapamil1","warfarin1",#Drugs
+          "quinine1","sulfamethoxazole1",#Drugs
+          "cyclohexylamine1","nacetylcysteinylacetaminoph1") #food additives
+short_db = short_db[,!(names(short_db) %in% drop)]
+```
+
+Valoro y elimino los participantes con exceso de missings:
+
+```{r, include = F}
+colnames(short_db)
+
+# Cuantifico cuantos NAs hay por persona:
+otra = data.frame(id = short_db$id, NAs = rowSums(is.na(short_db)))
+
+# Genero un objeto con los ids que superan el umbral:
+ids_validos = otra$id[otra$NAs<= 121] # threshold based on this databases 0.2*604
+
+# Genero un data frame con solo los ids que cumplen el umbral de missings:
+short_db = short_db[short_db$id %in% ids_validos,]
+```
+
+Elimino los mismos metabolitos que en la base de datos basal:
+
+```{r}
+# Creo un nuevo data frame para valorar los NAs en los metabolitos:
+quantitative_variables=short_db[,2:(length(short_db))]
+
+# Importo drop:
+drop = read_excel("data/drop_metabolitos.xlsx")
+
+# Modifico drop para que incluya el cambio de nomenclatura:
+drop = paste0(drop$drop, "1")
+
+# Elimino de la base de datos los metabolitos de drop antes de imputar los NAs:
+quantitative_variables_filtered = quantitative_variables[,!(names(quantitative_variables) %in% drop)]
+```
+
+Imputación: Comienzo con el proceso de imputación de la base de datos anual
+
+```{r, include=F}
+# Planto la semilla:
+set.seed(1)
+
+# Utilizo el algoritmo missForest para imputar los valores
+IMP = missForest(as.matrix(quantitative_variables_filtered), verbose = T)
+
+# Miro por pantalla el error obtenido:
+IMP$OOBerror #0.044 --> error de imputación muy bajo (menor de 0.2)
+
+# Creo un data frame con los datos imputados:
+IMP = data.frame(IMP$ximp)
+
+# Compruebo los nombres:
+colnames(IMP)
+```
+
+Normalización: inicio el proceso de normalización de la visita basal. Como en papers previos, procedo a utilizar la normalización ranknorm.
+
+```{r}
+# Aplico el algoritmo a toda la base de datos:
+IMP = apply(IMP, 2, RankNorm)
+
+# Añado la columna de ids:
+BBDDmet1 = data.frame(cbind(short_db[1], IMP))
+
+# Fusiono la base de datos de metabolitos con los datos de T2D:
+BBDDmet1 = merge(T2D_HOMA_met_new[1:116], BBDDmet1, by = "id")
+
+#colnames(BBDDmet1)
+
+# Exporto la base de datos:
+#export(BBDDmet1, "D:/Trabajo/UNH/Articulos/1. En Preparación/1. Articulos/1. Autor/PREDIMED/ART Metabolitos Diab - Mortalidad/data/20250109_BBDDmet_rkn_HOMA_anual.xlsx")
+```
+
+Limpio la consola:
+
+```{r}
+rm(IMP, na_count, otra, quantitative_variables, quantitative_variables_filtered,
+   short_db, drop, ids_validos)
+```

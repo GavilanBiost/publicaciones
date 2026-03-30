@@ -1,0 +1,239 @@
+---
+title: "8.  Análisis con los metabolitos comunes"
+format: html
+---
+
+# 7. Analisis con los metabolitos comunes:
+
+## 7.1. Creación de Score con los metabolitos comunes: 1º comp PCA
+
+```{r, include=F}
+df = merge(DT2, HOMA, by = "Metabolites")
+
+# Preparación de la BBDD:
+met2 = BBDDmet[,(names(BBDDmet) %in% df$Metabolites)]
+
+# Realizar el PCA
+pca_result = prcomp(met2, scale. = TRUE)
+pca_result$rotation
+summary(pca_result)
+```
+
+```{r}
+png(filename = "Supplemental Figure 4.png", width = 20, height = 15, res=300, unit="cm")
+fviz_pca_var(pca_result, 
+             col.var = "contrib", # Color por contribución de las variables
+             gradient.cols = c("black", "red", "blue"), # Esquema de color
+             repel = TRUE,
+             title = "")
+dev.off()
+```
+
+Cálculo del score a partir del primer componente:
+
+```{r}
+met2 = cbind(id = BBDDmet$id, met2, PC1 = pca_result$x[,1])
+
+score = cbind(id = met2$id, PC1 = met2$PC1)
+```
+
+## 7.2. Modelos de Cox con el score y los metabolitos individuales:
+
+```{r}
+BBDDmet = merge(BBDDmet, score, by = 'id')
+```
+
+```{r}
+# Glycine:
+summary(coxph(Surv(follcox_19, death19) ~ glycine * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat +    
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14, weights=w, data = BBDDmet))
+
+# Histidine:
+summary(coxph(Surv(follcox_19, death19) ~ histidine * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat +    
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14, weights=w, data = BBDDmet))
+
+# SDMA:
+summary(coxph(Surv(follcox_19, death19) ~ sdma + edad0 + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat +
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+
+# trimethylbenzene:
+summary(coxph(Surv(follcox_19, death19) ~ trimethylbenzene + cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat +    
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14, weights=w, data = BBDDmet))
+
+# dmgv:
+summary(coxph(Surv(follcox_19, death19) ~ dmgv * cut2(edad0, g = 2) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + as.factor(p14), weights=w, data = BBDDmet))
+
+# fructoseglucosegalactose:
+summary(coxph(Surv(follcox_19, death19) ~ fructoseglucosegalactose * cut2(edad0, g = 2) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+
+# phosphocreatine:
+summary(coxph(Surv(follcox_19, death19) ~ phosphocreatine * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+
+# LPC.26.1.0.0:
+summary(coxph(Surv(follcox_19, death19) ~ LPC.26.1.0.0 + cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat +  
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+
+# PE.34.2:
+summary(coxph(Surv(follcox_19, death19) ~ PE.34.2 * cut2(edad0, g = 3) +  as.factor(fum) + strata(sexo) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+
+# PC1:
+summary(coxph(Surv(follcox_19, death19) ~ PC1 * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + imc1 + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + (p14), weights=w, data = BBDDmet, robust = F))
+```
+
+### FDR:
+
+```{r}
+p_values <- c(0.003,0.567,0.010,0.173,0.0000001,0.0000001,0.0000001,0.393,0.0000001,0.0000001)
+
+p.adjust(p_values, method = "fdr", n = 31)
+p.adjust(p_values, method = "bonferroni", n = 31)
+
+rm(p_values)
+```
+
+## 7.3. Modelos logisticos:
+
+```{r}
+BBDDmet_long = merge(BBDDmet_long, score, by = 'id')
+```
+
+```{r}
+table(BBDDmet_long$nuevo)
+table(BBDDmet_long$death19, BBDDmet_long$nuevo)
+
+# Glycine:
+m2.1 = clogit(nuevo ~  glycine * cut2(edad0,	 g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + cut2(imc1,	 g = 2) + energiat +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + p14, 
+              weights=w, data = BBDDmet_long,method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# Histidine:
+m2.1 = clogit(nuevo ~  histidine + cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + cut2(imc1,	 g = 2) + energiat +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 			                                     as.factor(trathta0.x) + p14, 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# SDMA:
+m2.1 = clogit(nuevo ~ sdma * (sexo) + edad0 + as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + imc1 + energiat + alcoholg +
+                as.factor(educat) + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) +
+                as.factor(tra_col0.x) + as.factor(trathta0.x) + as.factor(p14),
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+
+# trimethylbenzene:
+m2.1 = clogit(nuevo ~ trimethylbenzene * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# dmgv:
+m2.1 = clogit(nuevo ~ dmgv + cut2(edad0, g = 3) + (sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +
+                as.factor(educat) + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# fructoseglucosegalactose:
+m2.1 = clogit(nuevo ~ fructoseglucosegalactose * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# phosphocreatine:
+m2.1 = clogit(nuevo ~ phosphocreatine * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + imc1 + energiat + alcoholg +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# LPC.26.1.0.0:
+m2.1 = clogit(nuevo ~ LPC.26.1.0.0 + cut2(edad0,	 g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + imc1 + energiat +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# PE.34.2:
+m2.1 = clogit(nuevo ~ PE.34.2 * as.factor(fum) + edad0 + strata(sexo) +  ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + imc1 + energiat + alcoholg +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+# PC1:
+m2.1 = clogit(nuevo ~ PC1 * cut2(edad0, g = 3) + strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                strata(as.factor(grup_int)) +
+                strata(as.factor(nodo)) + imc1 + energiat + alcoholg +
+                educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                as.factor(trathta0.x) + (p14), 
+              weights=w, data = BBDDmet_long, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+```
+
+### FDR:
+
+```{r}
+p_values <- c(0.000,0.409,0.049,0.030,0.046,0.156,0.004,0.680,0.023,0.004)
+
+p.adjust(p_values, method = "fdr", n = 31)
+p.adjust(p_values, method = "bonferroni")
+
+rm(p_values)
+```

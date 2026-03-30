@@ -1,0 +1,432 @@
+---
+title: "11. Supplemental"
+format: html
+---
+
+# 10. Supplemental File:
+
+## 10.1. Supplemental file 1: Modelos de Cox por sexo, tabaco, grupo de intervencion
+
+### Sexo:
+
+```{r}
+BBDDmet_muj = subset(BBDDmet, sexo == "mujer")
+BBDDmet_hom = subset(BBDDmet, sexo == "hombre")
+table(BBDDmet_muj$death19)
+table(BBDDmet_hom$death19)
+
+approaches = c("diab_est",
+                "homa_sd")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_muj)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_mujeres.xlsx")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + as.factor(fum) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_hom)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250105_modelos_mort_met_basal_hombres.xlsx")
+
+rm(approaches, fit_model3, formu_model3, full_results, get_data_sum, hr_data, modelos, results_model3, i, BBDDmet_hom, BBDDmet_muj)
+```
+
+### Tabaco:
+
+```{r}
+table(BBDDmet$fum)
+BBDDmet_for= subset(BBDDmet, fum == "former")
+BBDDmet_cur = subset(BBDDmet, fum == "current")
+BBDDmet_nev = subset(BBDDmet, fum == "never")
+table(BBDDmet_for$death19)
+table(BBDDmet_cur$death19)
+table(BBDDmet_nev$death19)
+
+approaches = c("diab_est",
+                "homa_sd")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "+ cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_for)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_for.xlsx")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_cur)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_cur.xlsx")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         strata(as.factor(grup_int)) +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_nev)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_nev.xlsx")
+
+rm(approaches, fit_model3, formu_model3, full_results, get_data_sum, hr_data, modelos, results_model3, i, BBDDmet_nev, BBDDmet_for, BBDDmet_cur)
+```
+
+### Grupo int:
+
+```{r}
+table(BBDDmet$grup_int)
+BBDDmet_MdV= subset(BBDDmet, grup_int == "aceite de oliva")
+BBDDmet_MdN = subset(BBDDmet, grup_int == "frutos secos")
+BBDDmet_con = subset(BBDDmet, grup_int == "dieta baja en grasa")
+table(BBDDmet_MdV$death19)
+table(BBDDmet_MdN$death19)
+table(BBDDmet_con$death19)
+
+approaches = c("diab_est",
+                "homa_sd")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         fum +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_MdV)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_MdV.xlsx")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         fum +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_MdN)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_MdN.xlsx")
+
+formu_model3 = list()
+fit_model3 = list()
+
+for (i in 1:2){
+  formu_model3[[i]] = as.formula(paste0("Surv(follcox_19, death19) ~ ", approaches[i], 
+                                         "* cut2(edad0, g = 2) + (sexo) + ps1 + ps2 + 
+                                         fum +
+                                         strata(as.factor(nodo)) + cut2(imc1, g = 2) + energiat + alcoholg +   
+                                         educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) + 
+                                         as.factor(trathta0.x) + p14"))
+  fit_model3[[i]] = coxph(formu_model3[[i]], weights=w, data = BBDDmet_con)
+}
+
+results_model3 = matrix(NA, 2, 4)
+
+rownames(results_model3) = c("diab_est",
+                              "homa_sd")
+
+colnames(results_model3)=c("HR", "lower 95% CI", "upper 95% CI", "P_value")
+
+for (i in 1:2){
+  get_data_sum = summary(fit_model3[[i]])
+  hr_data = get_data_sum$conf.int[1,c("exp(coef)", "lower .95", "upper .95")]
+  
+  results_model3[i,1] = round(hr_data[1], 3)
+  results_model3[i,2] = round(hr_data[2], 3)
+  results_model3[i,3] = round(hr_data[3], 3)
+  results_model3[i,4] = round(get_data_sum$coefficients[1,6], 3)  # Pvalue
+}
+
+full_results = rbind(c("Model 3"),results_model3)
+
+modelos = data.frame(full_results)
+modelos$names = rownames(modelos)
+#export(modelos, "20250205_modelos_mort_met_basal_con.xlsx")
+
+rm(approaches, fit_model3, formu_model3, full_results, get_data_sum, hr_data, modelos, results_model3, i, BBDDmet_MdV, BBDDmet_MdN, BBDDmet_con)
+```
+
+### Figuras:
+
+```{r}
+#T2D:
+datos = structure(list(
+  mean  = c(NA, NA, 1.87,	1.35,	1.29,	1.64,	1.48,	0.66,	2.27,	1.79), 
+  lower = c(NA, NA, 0.95,	0.80,	0.25,	0.98,	0.76,	0.29,	0.62,	0.89),
+  upper = c(NA, NA, 3.71,	2.28,	6.54,	2.74,	2.89,	1.51,	8.27,	3.63)),
+  .Names = c("mean", "lower", "upper"), 
+  row.names = c(NA, -10L), 
+  class = "data.frame")
+
+tabletext<-cbind(
+  c("", "", "Man", "Woman", 
+    "Smoker", "Former Smoker", "Never Smoker", 
+    "MedDiet + VOO", "MedDiet + Nuts", "Control Diet"),
+  c("All-cause mortality", "(events/N)", 
+    "60/265", "69/434", 
+    "28/123", "36/157", "65/419", 
+    "40/209","34/249", "55/241"),
+  c("HR (95% IC)", NA, 
+    "1.87	(0.95,	3.71)", "1.35	(0.80,	2.28)", 
+    "1.29	(0.25,	6.54)", "1.64	(0.98,	2.74)", "1.48	(0.76,	2.89)", 
+    "0.66	(0.29,	1.51)", "2.27	(0.62,	8.27)", "1.79	(0.89,	3.63)"))
+
+png(filename = "Supplemental Figure 2_T2D.png", width = 25, height = 15, res=300, unit="cm")
+forestplot(tabletext, 
+           datos,new_page = TRUE,
+           is.summary=c(TRUE,TRUE,rep(FALSE,8),TRUE),
+           clip=c(0.1,Inf), 
+           xlog=TRUE, 
+           vertices = T,
+           graph.pos = 3,
+           boxsize = 0.1,
+           col=fpColors(box="black",line="black", summary="black"))
+dev.off()
+
+#HOMA:
+datos = structure(list(
+  mean  = c(NA, NA, 1.99, 1.11, 2.08, 1.57, 1.28, 0.77, 2.25, 1.74), 
+  lower = c(NA, NA, 1.20, 0.76, 0.38, 0.94, 0.67, 0.39, 0.84, 1.08),
+  upper = c(NA, NA, 3.29, 1.63, 11.55, 2.62, 2.47, 1.53, 6.04, 2.80)),
+  .Names = c("mean", "lower", "upper"), 
+  row.names = c(NA, -10L), 
+  class = "data.frame")
+
+tabletext<-cbind(
+  c("", "", "Man", "Woman", 
+    "Smoker", "Former Smoker", "Never Smoker", 
+    "MedDiet + VOO", "MedDiet + Nuts", "Control Diet"),
+  c("All-cause mortality", "(events/N)", 
+    "60/265", "69/434", 
+    "28/123", "36/157", "65/419", 
+    "40/209","34/249", "55/241"),
+  c("HR (95% IC)", NA, 
+    "1.99 (1.20, 3.29)", "1.11 (0.76, 1.63)", 
+    "2.08 (0.38, 11.55)", "1.57 (0.94, 2.62)", "1.28 (0.67, 2.47)", 
+    "0.77 (0.39, 1.53)", "2.25 (0.84, 6.04)", "1.74 (1.08, 2.80)"))
+
+png(filename = "Supplemental Figure 3_HOMA.png", width = 25, height = 15, res=300, unit="cm")
+forestplot(tabletext, 
+           datos,new_page = TRUE,
+           is.summary=c(TRUE,TRUE,rep(FALSE,8),TRUE),
+           clip=c(0.1,Inf), 
+           xlog=TRUE, 
+           vertices = T,
+           graph.pos = 3,
+           boxsize = 0.1,
+           col=fpColors(box="black",line="black", summary="black"))
+dev.off()
+```
+
+```{r}
+rm(datos, tabletext)
+```
+
+## 10.2. Coeficientes del Material Suplementario:
+
+```{r}
+DT2 = read_excel("2. Resultados/2. datos/Only coef_binomial_diabetes.xlsx")
+HOMA = read_excel("2. Resultados/2. datos/Only coef_gaussian_HOMA.xlsx")
+colnames(DT2)[2:3] = c("mean T2D", "SD T2D")
+colnames(HOMA)[2:3] = c("mean HOMA-IR", "SD HOMA-IR")
+Coefs = merge(DT2, HOMA, by = "Metabolites", all = T)
+Coefs = merge(Coefs, match_names, by = "Metabolites", all.x = T)
+export(Coefs, "Supplemental Data 1.xlsx")
+```

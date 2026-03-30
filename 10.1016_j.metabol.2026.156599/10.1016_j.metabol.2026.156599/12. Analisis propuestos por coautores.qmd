@@ -1,0 +1,138 @@
+---
+title: "12. Analisis propuestos por coautores"
+format: html
+---
+
+MAM propone hacer terciles/cuartiles en las huellas y ver su relación con mortalidad.
+
+```{r}
+met3$ter_homa_est4 = cut2(met3$homa_est, g = 4)
+met3$ter_t2d_est4 = cut2(met3$diab_est, g = 4)
+```
+
+Creo los modelos de Cox: utilizo los modelos más ajustados:
+
+```{r}
+fit_homa = coxph(Surv(follcox_19, death19) ~  homa_sd * cut2(edad0, g = 2) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) +
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, data = met3)
+
+summary(fit_homa)
+
+fit_homa_ter = coxph(Surv(follcox_19, death19) ~  ter_homa_est4 * cut2(edad0, g = 2) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) +
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, ties = "breslow", robust = F, data = met3)
+
+summary(fit_homa_ter)
+
+fit_homa_ter_trend = coxph(Surv(follcox_19, death19) ~  as.numeric(ter_homa_est4) * cut2(edad0, g = 2) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) +
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, ties = "breslow", robust = F, data = met3)
+
+summary(fit_homa_ter_trend)
+
+met3$diab_est_sd = met3$diab_est/sd(met3$diab_est)
+
+fit_t2d = coxph(Surv(follcox_19, death19) ~  diab_est_sd * (cut2(edad0, g = 2)) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) + 
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, data = met3)
+
+summary(fit_t2d)
+
+fit_t2d_ter = coxph(Surv(follcox_19, death19) ~  ter_t2d_est4 + strata(cut2(edad0, g = 2)) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) + 
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, ties = "breslow", robust = F, data = met3)
+
+summary(fit_t2d_ter)
+
+fit_t2d_ter_trend = coxph(Surv(follcox_19, death19) ~  as.numeric(ter_t2d_est4) + strata(cut2(edad0, g = 2)) + 
+                     strata(sexo) +  as.factor(fum) + ps1 + ps2 +
+                     strata(as.factor(grup_int)) + energiat + alcoholg +
+                     strata(as.factor(nodo)) + cut2(imc1, g = 2) + 
+                     educat + getota_1.x + as.factor(hipercol0.x) + as.factor(hta0.x) + as.factor(tra_col0.x) +
+                     as.factor(trathta0.x) + p14, weights=w, ties = "breslow", robust = F, data = met3)
+
+summary(fit_t2d_ter_trend)
+
+table(met3$death19, met3$ter_t2d_est4)
+round(100 * prop.table(table(met3$death19, met3$ter_t2d_est4), margin = 2), 1)
+fisher.test(met3$death19, met3$ter_t2d_est4)
+table(met3$death19, met3$ter_homa_est4)
+round(100 * prop.table(table(met3$death19, met3$ter_homa_est4), margin = 2), 1)
+fisher.test(met3$death19, met3$ter_homa_est4)
+```
+
+Person-year:
+
+```{r}
+met3$person_year = sum(met3$follcox_19)
+tapply(met3$follcox_19, met3$ter_t2d_est4, sum)
+tapply(met3$follcox_19, met3$ter_homa_est4, sum)
+```
+
+Recalculo las características basales:
+
+```{r}
+met4 = met3
+met4$ter_t2d_est4 = factor(met4$ter_t2d_est4,
+                     levels = c("[-2.89981,-0.62111)", "[-0.62111, 0.00698)", 
+                                "[ 0.00698, 0.65620)", "[ 0.65620, 2.84555]"),
+                     labels = c("1", "2", "3", "4"))
+met4$death19 = ifelse(met4$death19 == 1, TRUE, FALSE)
+met4$sexo = ifelse(met4$sexo == "mujer", "Woman", "Man")
+met4$hta0.x = ifelse(met4$hta0.y == 1, "Yes", "No")
+met4$hipercol0.x = ifelse(met4$hipercol0.y == 1, "Yes", "No")
+met4$grup_int = factor(met4$grup_int,
+                     levels = c("aceite de oliva", "frutos secos", "dieta baja en grasa"),
+                     labels = c("MedDiet + VOO", "MedDiet + NUTS", "Control"))
+
+vars = c("diab_est","death19","edad0", "sexo", "imc1", "ant_fam", "fum", "hta0.x", "hipercol0.x","grup_int", "p14", "energiat", "alcoholg", "getota_1.x", "hdl1","ldl1","col1", "TG","glucose0_0")
+
+table1 = CreateTableOne(vars = vars, strata = "ter_t2d_est4", data = met4, test = TRUE)
+table1_df = print(table1, quote = FALSE, noSpaces = TRUE, printToggle = FALSE)
+table1_df = data.frame(Variable = rownames(table1_df), table1_df, row.names = NULL)
+
+wb = createWorkbook()
+addWorksheet(wb, "TableOne")
+
+writeData(wb, "TableOne", table1_df)
+saveWorkbook(wb, file = "tabla_comparativa2.xlsx", overwrite = TRUE)
+
+rm(vars, wb, table1, table1_df)
+```
+
+Calculo las características basales para el poster del OMICS:
+
+```{r}
+# Selecciono las variables de la tabla de características basales:
+vars = c("death19","edad0", "sexo", "imc1", "ant_fam", "fum", "hta0.x", "hipercol0.x","grup_int", "p14", "energiat", "alcoholg", "getota_1.x", "hdl1","ldl1","col1", "TG","glucose0_0")
+
+# Genero la tabla:
+table1 = CreateTableOne(vars = vars, data = met4)
+# Transformo la tabla a dataframe:
+table1_df = print(table1, quote = FALSE, noSpaces = TRUE, printToggle = FALSE)
+table1_df = data.frame(Variable = rownames(table1_df), table1_df, row.names = NULL)
+
+rio::export(table1_df, "tabla_omics.xlsx")
+wb = createWorkbook()
+addWorksheet(wb, "TableOne")
+writeData(wb, "TableOne", table1_df)
+saveWorkbook(wb, file = "tabla_comparativa2.xlsx", overwrite = TRUE)
+
+rm(vars, wb, table1, table1_df)
+```

@@ -1,0 +1,62 @@
+---
+title: "6. Longevidad"
+format: html
+---
+
+# 5. Longevidad:
+
+Creo la variable longevidad (\>= 85)
+
+```{r}
+BBDDmet$edad2 = BBDDmet$edad0 + BBDDmet$follcox_19
+summary(BBDDmet$edad2)
+summary(BBDDmet$edad0)
+BBDDmet$nuevo = 999
+
+for (i in 1:length(BBDDmet$edad2)) {
+  if (BBDDmet$edad2[i] < 85 & BBDDmet$death19[i] == 1) {BBDDmet$nuevo[i] = 1}
+  else if (BBDDmet$edad2[i] >= 85) {BBDDmet$nuevo[i] = 2}
+  else {BBDDmet$nuevo[i] = 0}
+}
+
+BBDDmet_long = subset(BBDDmet, nuevo > 0)
+table(BBDDmet_long$nuevo)
+table(BBDDmet_long$death19)
+table(BBDDmet_long$cens.x, BBDDmet_long$death19)
+```
+
+#### Regresiones logisticas condicionadas:
+
+```{r}
+m2.1 = clogit(nuevo ~ diab_est * cut2(edad0, g = 3) + sexo + as.factor(grup_int) + strata(nodo) + as.factor(fum) + cut2(imc1, g=2) +
+                as.factor(educat) + getota_1.x + hipercol0.x + hta0.x + tra_col0.x + trathta0.x + as.factor(p14) + energiat, 
+              data = BBDDmet_long, weights = w, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+
+m2.1 = clogit(nuevo ~ homa_sd * cut2(edad0, g = 3) + sexo + as.factor(grup_int) + strata(nodo) + as.factor(fum) + 
+                cut2(imc1, g = 2) + energiat +
+                as.factor(educat) + getota_1.x + hipercol0.x + hta0.x + tra_col0.x + trathta0.x + (p14), 
+              data = BBDDmet_long, weights = w, method = "breslow")
+cbind("OR" = round(exp(coef(m2.1))[1],2), round(t(exp(confint(m2.1))[1,]),2), round(summary(m2.1)$coefficients[1,6],3))
+```
+
+#### Regresiones logisticas:
+
+```{r}
+m2.1 = glm(as.factor(nuevo) ~ diab_est * cut2(edad0, g = 3) + sexo + as.factor(grup_int) + (nodo) + as.factor(fum) + 
+             cut2(imc1, g = 2) + 
+             as.factor(educat) + getota_1.x + hipercol0.x + hta0.x + as.factor(tra_col0.x) + trathta0.x + (p14) + energiat,
+           data = BBDDmet_long, family = "binomial")
+summary(m2.1)
+cbind("OR" = round(exp(summary(m2.1)$coefficients[2,1]),2), round(t(exp(confint(m2.1))[2,]),2), round(summary(m2.1)$coefficients[2,4],3))
+
+
+m2.1 = glm(as.factor(nuevo) ~ homa_sd * cut2(edad0, g = 3) + sexo + as.factor(grup_int) + (nodo) + as.factor(fum) + 
+             cut2(imc1, g = 2) + 
+             as.factor(educat) + getota_1.x  + hipercol0.x  + hta0.x  + as.factor(tra_col0.x ) + trathta0.x  + (p14),
+           data = BBDDmet_long, family = "binomial")
+summary(m2.1)
+cbind("OR" = round(exp(summary(m2.1)$coefficients[2,1]),2), round(t(exp(confint(m2.1))[2,]),2), round(summary(m2.1)$coefficients[2,4],3))
+
+rm(m2.1, mortality19_predimed, propensity, score_diab)
+```

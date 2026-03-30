@@ -1,0 +1,771 @@
+---
+title: "3. ENR"
+format: html
+---
+
+# 2. ENR
+
+Preparamos la ENR para realizar 2 modelos: HOMA (Gaussiano) y diabetes (binomial).
+
+## 2.1. Diabetes
+
+Creo la base de datos a utilizar con la ENR:
+
+```{r}
+#colnames(BBDDmet)
+diabetes = cbind(cens = BBDDmet$cens.x,BBDDmet[117:705])
+```
+
+### 2.1.1. Entrenamiento de los modelos:
+
+#### Estimacion del valor de alpha:
+
+```{r}
+# Plantamos la semilla:
+set.seed(12)
+
+# Creamos la aleatorización de las filas:
+rows = sample(nrow(diabetes))
+# Ordenamos las filas para la aleatorización:
+diabetes = diabetes [rows,]
+# Creamos los cortes de la validación cruzada (leave-one-out):
+folds = cut(seq(1,nrow(diabetes)),breaks=698,labels=FALSE)
+
+# Creamos las variables de aculumación:
+train.data = c()
+test.data = c()
+cv = c()
+bT = c()
+
+# Iniciamos el bucle de 1 a 698:
+for (i in 1:698) {
+  # Seleccionamos el corte de la BBDD que coincide con i:
+  training = which(folds==i, arr.ind=TRUE)
+  # Creamos un subconjunto para la iteración i que selecciona todas las filas no incluidas en training:
+  train.data[[i]] = diabetes [-training, ]
+  # Validamos con las filas incluidas en training:
+  test.data[[i]] = diabetes [training, ] 
+  # Hacemos la ENR binomial utilizando el subconjunto de entrenamiento. Hacemos validación cruzada interna con 5 particiones y probamos automaticamente 5 combinaciones de los hiperparámetros de optimización del modelo:
+  cv[[i]] = train(as.factor(cens) ~ . , data = train.data[[i]],  method = "glmnet", trControl = trainControl("cv", number = 5), tuneLength = 5)
+  # Extraemos los resultados de la mejor combinación de hiperparámetros para la iteración i incluyendo la precisión de cada combinación
+  bT[[i]] = cbind(cv[[i]]$bestTune,accuracy = max(cv[[i]]$results$Accuracy))
+}
+```
+
+Selección del mejor Alpha y lambda. En la tabla que obtenemos, seleccionamos la combinación con mayor precisión de los modelos entrenados:
+
+```{r}
+bT = data.frame(matrix(unlist(bT), ncol = 3, byrow= T))
+names(bT) = c("alpha","lambda","accuracy")
+bT = bT %>% arrange(desc(accuracy))
+l = bT$lambda[bT$accuracy== max(bT$accuracy)] #0.0161564399
+#l = 0.01597965
+alp = bT$alpha[bT$accuracy== max(bT$accuracy)] #1
+#alp = 0.325
+```
+
+#### Selección de los metabolitos
+
+La finalidad de esta parte es disminuir la dimensionalidad del conjunto de metabolitos a aquellos que se asociacián con la variable resultante, en este caso, diabetes. Se utilizarán los hiperparámetros seleccionados en el paso anterior y nos quedaremos con los metabolitos que se han seleccionado 10 veces con el fin de obtener la mayor robusted posible del modelo:
+
+```{r}
+# Plantamos las semilla:
+set.seed(21)
+
+# Seleccionamos el tipo de hiperparámetro lambda:
+type.lambda=c("lambda.min")
+#type.lambda=c("lambda.1se")
+
+# Creamos las listas para almacenar los resutlados:
+fit_full=list()
+cvfit_full=list()
+variables_values_full=list()
+
+# Convertimos en data.frame el conjunto diabetes:
+full_data=as.data.frame(diabetes)
+# Creamos la matriz de variables predictoras:
+X.full=full_data[,2:(dim(full_data)[2])]
+# La convertimos en matriz:
+X.full=as.matrix(X.full)
+# Creamos la variale respuesta:
+Y.full = full_data$cens
+
+# Iniciamos el bucle del modelos con una validación cruzada de 10 cortes:
+for (i in 1:10)
+{
+  cat("##################################", '\n')
+  cat("Iteration WHOLE DATASET ", i, '\n')
+  cat("##################################", '\n')
+
+  # Ajustamos el modelo de validación cruzada por 10 cortes. Decidimos evaluar por error de clasificación:
+  cvfit_full[[i]] = cv.glmnet(X.full, as.numeric(Y.full), family="binomial", type.measure = "class", nfolds = 10, alpha=alp)
+  # Opcional: Gráficamos el error en función de lambda
+  plot(cvfit_full[[i]])
+
+  # Extraemos los coeficientes seleccionados para lambda óptima
+  list_metabo_full=coef(cvfit_full[[i]], s = type.lambda)
+  
+  # Extraemos los valores de los coeficientes (sin incluir el intercepto)
+  values_metabo_full=list_metabo_full@x
+  values_metabo_full=values_metabo_full[-1]
+  
+  # Extraemos los índices de las variables seleccionadas
+  listado_selected_full=c(list_metabo_full@i)
+  # Obtenemos los nombres de las variables seleccionadas
+  variables_model_full=as.data.frame(colnames(X.full))
+  variables_get_full=variables_model_full[listado_selected_full,]
+  variables_get_full=as.character(variables_get_full)
+  
+  # Combinamos las variables seleccionadas con sus valores
+  variables_values_full[[i]]=cbind(variables_get_full, values_metabo_full)
+}
+```
+
+#### Extracción de los metabolitos
+
+```{R}
+# Convertimos el conjunto de datos 'diabetes' en data.frame
+inter=as.data.frame(diabetes)
+# Extraemos los nombres de las variables predictoras
+variables2=as.data.frame(colnames(inter[,2:(length(inter))])) 
+
+# Renombramos las variables:
+colnames(variables2)=c("variables_get_full")
+# Añadimos una columna auxiliar con 'NA'
+variables2$check=c('NA')
+
+# Inicializamos un data.frame que contendrá las variables seleccionadas en las iteraciones
+abc_set = data.frame(colnames(diabetes))
+# Cambiamos el nombre de la columna creada:
+colnames(abc_set)[colnames(abc_set)=="colnames.diabetes."] = "variables_get_full"
+
+# Creamos un bucle para combinar los resultados de cada iteracion en abc_set:
+for (i in 1:10) {
+  abc_set= merge(abc_set, variables_values_full[[i]], by = "variables_get_full", all.x = T)
+}
+colnames(abc_set) = c("variables_get_full","v1","v2","v3","v4","v5","v6","v7","v8","v9","v10")
+
+# Contamos las iteraciones donde una variable fue seleccionada:
+metabos_NA_model=as.data.frame(10 - rowSums(is.na(abc_set)))
+metabos_NA_model=cbind(abc_set$variables_get_full, metabos_NA_model)
+# Añadimos un indicador de selección en todas las iteraciones
+colnames(metabos_NA_model)=c("variables_get_full", "Join")
+# Ordenamos por nombre de variable
+metabos_NA_model=metabos_NA_model[order(metabos_NA_model$variables_get_full),]
+
+# Volvemos a fusionar para añadir la columna nueva:
+abc_set=merge(abc_set, metabos_NA_model, by = "variables_get_full", all=T)
+colnames(abc_set)=c("variables_get_full", "It1", "It2", "It3", "It4", "It5", "It6", "It7", "It8", "It9", "It10", "JOIN")
+
+# Calculamos la media y la desviación estándar de los coeficientes de cada variable (mean, sd) utilizando los valores de las 10 iteraciones
+abc_set_values=abc_set[,2:11]
+str(abc_set[,2:11], list.len=(ncol(abc_set))-3)
+indx = sapply(abc_set[,2:11], is.character)
+abc_set_values[indx] = lapply(abc_set_values[indx], function(x) as.numeric(as.character(x)))
+abc_full=cbind("Metabolites"=abc_set[,1], abc_set_values, "JOIN"=abc_set[,12])
+abc_full$mean=apply(abc_full[,2:11], 1, function(x) { mean(x, na.rm=TRUE) })
+abc_full$sd=apply(abc_full[,2:11], 1, function(x) { sd(x, na.rm=TRUE) })
+
+# Seleccionamos las variables elegidas 10 veces:
+mean_values_metabo = abc_full[ which(abc_full$JOIN==10), c(1,13,14)]
+
+# Y exportamos el resultado:
+export(mean_values_metabo, "2. Resultados/2. datos/Only coef_binomial_diabetes.xlsx")
+
+# Creamos una matriz...
+mean_values_metabo_matrix=as.matrix(mean_values_metabo)
+# Cargamos el archivo con los nombres correctos de los metabolitos...
+match_names = read_delim("E:/Trabajo/1. UNH/Articulos/1. En Preparación/1. Articulos/1. Autor/PREDIMED/ART Metabolitos Diab - Mortalidad/1. Bases de datos/1. Originales/20241212_names_VARS_extendido.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+#### Figuras
+
+```{r}
+
+# Combinamos las estadísticas calculadas con los nombres descriptivos de las variables, añadiendo contexto a los resultados
+new_mean_values_metabo=merge(mean_values_metabo, match_names, by = "Metabolites")
+
+# Ordenamos los resultados por su valor medio:
+mean_values_metabo_sorted=mean_values_metabo[order(mean_values_metabo$mean),c(1,2,3)]
+dim(mean_values_metabo_sorted)[1]
+
+# Añadimos los nombres correctos:
+new_mean_values_metabo_sorted=merge(mean_values_metabo_sorted, match_names, by = "Metabolites")
+# Y transformamos el subconjunto en data frame:
+new_mean_values_metabo_sorted=data.frame("Metabolites"=new_mean_values_metabo_sorted$name, 
+                                         "mean"=new_mean_values_metabo_sorted$mean, 
+                                         "sd"=new_mean_values_metabo_sorted$sd)
+new_mean_values_metabo_sorted=new_mean_values_metabo_sorted[order(new_mean_values_metabo_sorted$mean),c(1,2,3)]
+
+# Creamos dos subconjuntos para valores positivos y negativos:
+selected_mean_values_metabo_sorted_negative=new_mean_values_metabo_sorted[(new_mean_values_metabo_sorted$mean<0), ]
+
+selected_mean_values_metabo_sorted_positive=new_mean_values_metabo_sorted[(new_mean_values_metabo_sorted$mean>=0), ]
+
+# Calculamos los valores extremos para indicarlo en la gráfica:
+minimo=min(selected_mean_values_metabo_sorted_negative$mean)
+maximo=max(selected_mean_values_metabo_sorted_positive$mean)
+
+# Creamos la gráfica para cada signo:
+plot_negative=ggplot(selected_mean_values_metabo_sorted_negative, aes(x = mean, y = reorder(Metabolites, -mean))) +
+  geom_point() + 
+  scale_y_discrete(position = "left") + 
+  xlab("Coefficient value") + 
+  ylab("Metabolites") +
+  scale_x_continuous(limits = c(-0.2, 0)) + 
+  geom_errorbarh(aes(xmax = mean + sd, xmin = mean - sd, height = .2)) + 
+  theme_bw()
+
+plot_positive=ggplot(selected_mean_values_metabo_sorted_positive, aes(x = mean, y = reorder(Metabolites, +mean))) +
+  geom_point() + 
+  scale_y_discrete(position = "right") + 
+  xlab("Coefficient value") + 
+  ylab("Metabolites") +
+  scale_x_continuous(limits = c(0, 0.8)) + 
+  geom_errorbarh(aes(xmax = mean + sd, xmin = mean - sd, height = .2)) + 
+  theme_bw()
+
+# Combinamos los gráficos y exportamos la imagen:
+require(gridExtra)
+png(filename = "coef_diabetes2.png", width = 30, height = 20, res=300, unit="cm")
+grid.arrange(plot_negative, plot_positive, ncol=2)
+dev.off()
+
+# Exportamos un excel con los metabolitos, sus medias y su SD ordenados:
+export(new_mean_values_metabo_sorted, "2. Resultados/2. datos/20250109_diabetes_coef.xlsx")
+```
+
+### 2.1.2. Validación interna
+
+#### Validación Training-testing
+
+Con esta parte del código obtenemos la validación propia del modelo implementando una validación cruzada de 10 particiones con 10 cv internas:
+
+```{r}
+# Reodenamos las filas del conjunto de datos, actualizamos el orden y divimos el conjunto en 10 trozos:
+rows = sample(nrow(diabetes))
+diabetes = diabetes[rows, ]
+folds = cut(seq(1,nrow(diabetes)),breaks=10,labels=FALSE)
+
+# Declaramos todas las variables que vamos a utilizar en el proceso:
+# Variables de almacenamiento de subconjuntos:
+set_train=list()
+set_test=list()
+X.train_saved=list()
+Y.train_saved=list()
+X.test_saved=list()
+Y.test_saved=list() 
+# variables de almacenamiento de modelos ajustados:
+cvfit=list()
+# Variables de almacenamiento de metabolitos y coeficientes:
+variables_values=list()
+
+# Comenzamos con las iteraciones. El bucle se ejecuta 10 veces donde cada iteración se le asigna un subgrupo como test y los 9 restantes se usan como subconjunto de entrenamiento:
+for (i in 1:10)
+{
+  cat("##################################", '\n')
+  cat("Iteration TRAINING-testing ", i, '\n')
+  cat("##################################", '\n \n')
+  # Creación de los subconjuntos:
+  sample = which(folds==i,arr.ind=TRUE)
+  set_train[[i]] = diabetes[-sample, ] 
+  set_test[[i]]  = diabetes[sample, ]
+  # Separación de predictores y respuesta para el correcto funcionamiento del modelo:
+  a=as.data.frame(set_train[[i]])
+  train=a[,2:(dim(a)[2])]
+  X.train = train
+  X.train = as.matrix(X.train)
+  Y.train = a$cens
+  
+  a=as.data.frame(set_test[[i]])
+  test=a[,2:(dim(a)[2])]
+  X.test = test
+  X.test = as.matrix(X.test)
+  Y.test = a$cens
+  
+  X.train_saved[[i]]=X.train
+  Y.train_saved[[i]]=Y.train
+  X.test_saved[[i]]=X.test
+  Y.test_saved[[i]]=Y.test    
+  # Realizamos el modelo de validación cruzada 10 x 10 con el valor alfa entrenado previamente:
+  cvfit[[i]] = cv.glmnet(X.train, as.numeric(Y.train), family="binomial", type.measure = "class", nfolds = 10, alpha=alp)
+  plot(cvfit[[i]])
+  # Extraemos los coeficientes y las variables seleccionadas:
+  list_metabo=coef(cvfit[[i]], s = type.lambda)
+  values_metabo=list_metabo@x
+  values_metabo=values_metabo[-1]
+  
+  listado_selected=c(list_metabo@i)
+  variables_model=as.data.frame(colnames(X.train))
+  variables_get=variables_model[listado_selected,]
+  variables_get=as.character(variables_get)
+  variables_values[[i]]=cbind(variables_get, values_metabo)
+}
+```
+
+#### AUC para el training-testing
+
+```{r}
+# Declaramos las variables que utilizaremos para almacenar los resultados:
+corr_test_pearson=list()
+corr_test_spearman=list()
+standard_roc = c()
+correlaciones_tt=matrix(NA,10,4)
+AUCs_tt = matrix(NA,10,3)
+
+type.lambda=c("lambda.min")
+#type.lambda=c("lambda.1se")
+
+# Contador de iteraciones:
+si_model = 0 
+
+for (i in 1:10)
+{
+  # Extraemos coeficientes:
+  list_metabo=coef(cvfit[[i]], s = type.lambda)
+  # Valores de los coef sin intercepto:
+  values_metabo=list_metabo@x
+  values_metabo=values_metabo[-1]
+  
+  listado_selected=c(list_metabo@i)
+  variables_model=as.data.frame(colnames(X.train))
+  variables_get=variables_model[listado_selected,]
+  variables_get=as.character(variables_get)
+  # Extraemos los metabolitos y sus coeficientes:
+  variables_values[[i]]=cbind(variables_get, values_metabo)
+  # Control de metabolitos:
+  # Si no hay metabolitos...
+  if (dim(variables_values[[i]])[1] == 0)
+  {
+    cat("No metabolites found for iteration", i, '\n')
+  }
+  # Si hay metabolitos, seguimos:
+  if (dim(variables_values[[i]])[1] != 0)
+  {
+    # Calculamos la curva de roc
+    standard_roc[[i]] = roc(Y.test_saved[[i]], as.numeric(predict(cvfit[[i]], X.test_saved[[i]], type = "response")), ci=TRUE)
+    # Calculamos el test de pearson
+    corr_test_pearson[[i]]=cor.test(Y.test_saved[[i]], predict(cvfit[[i]],newx=X.test_saved[[i]], s=type.lambda), method="pearson")
+    # Calculamos el test de spearman
+    corr_test_spearman[[i]]=cor.test(Y.test_saved[[i]], predict(cvfit[[i]],newx=X.test_saved[[i]], s=type.lambda), method="spearman")
+    # Creamos una tabla con los resultados de cada pearson
+    correlaciones_tt[i,1]=round(corr_test_pearson[[i]]$estimate,2)
+    correlaciones_tt[i,2]=round(corr_test_pearson[[i]]$conf.int[1],2)
+    correlaciones_tt[i,3]=round(corr_test_pearson[[i]]$conf.int[2],2)
+    correlaciones_tt[i,4]=round(corr_test_pearson[[i]]$p.value,3)
+    
+    # Creamos una tabla con los resultados de cada AUC
+    AUCs_tt[i,1]=round(standard_roc[[i]]$auc[1],2)
+    AUCs_tt[i,2]=round(standard_roc[[i]]$ci[1],2)
+    AUCs_tt[i,3]=round(standard_roc[[i]]$ci[2],2)
+    # Registramos las iteraciones con modelos válidos
+    si_model = cbind(si_model, i)
+  }
+}
+
+# Calculo de la media y los IC de las correlaciones y las AUCS:
+ci.mean(correlaciones_tt[,1],normal=T) # 0.42 [0.38;0.46]
+ci.mean(AUCs_tt[,1],normal=T) #0.80 [0.76;0.83]
+
+#export(correlaciones_tt, "2. Resultados/2. Modelos/20250110_correlaciones_tt_diab.xlsx")
+#export(AUCs_tt, "2. Resultados/2. Modelos/20250110_AUCs_tt_diab.xlsx")
+```
+
+#### AUC del modelo
+
+```{r}
+correlacion_all = c()
+AUCs_all = c()
+
+X2 = BBDDmet[117:705]
+Y2 = BBDDmet$cens.x
+b = mean_values_metabo
+
+if (length(b) != 0) {
+  stdout  = vector('character')
+  con = textConnection('stdout', 'wr', local = TRUE)
+  sink(con)
+  for (i in 1:(dim(b)[1]))
+  {
+    if (i == 1) {cat("X2$model=", sep="")}
+    if ((i < (dim(b)[1])) & (i > 0)) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")"," +", "\n", sep="")}
+    if (i == (dim(b)[1])) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")", sep="")}
+  }
+  sink()
+  
+  close(con)
+  
+  stdout_full = paste(unlist(stdout), collapse =" ")
+  stdout_full[1]
+  
+  eval(parse(text=stdout_full[1]))
+  
+  modelo = X2$model
+  
+  correlacion_all = cor.test(Y2,modelo, conf.level = .95) #0.51 (0.46, 0.57)
+  AUCs_all = roc(Y2, modelo, ci=TRUE) #0.85 (0.82, 0.88)
+} 
+
+score_diab = data.frame(cbind(id = BBDDmet$id, cens = BBDDmet$cens, diab_est = modelo))
+
+#export(score_diab, "20250110_Scores_diab.xlsx")
+
+#save.image(file = "20250110_Diabetes.RData")
+```
+
+```{r}
+rm(AUCs_all, a, abc_full, abc_set, abc_set_values, AUCs, AUCs_tt, b, bT, cor_values_pearson, cor_values_spearman,
+   corr_obj, corr_test_pearson, corr_test_spearman, correlacion_all, correlaciones, correlaciones_tt, cv, cvfit,
+   cvfit_full, data, diabetes, diabetes2, fit, fit_full, full_data, inter, list_metabo, list_metabo_full,
+   mean_values_metabo, mean_values_metabo_sorted, mean_values_metabo_matrix, met, metabos_NA_model, model.met,
+   new_mean_values_metabo, new_mean_values_metabo_sorted, nuevo_ytest_model, nuevo_ytest_model2,
+   plot_negative, plot_positive, plot1, plot2, selected_mean_values_metabo_sorted,
+   selected_mean_values_metabo_sorted_negative, selected_mean_values_metabo_sorted_positive, set_test, set_train,
+   si_model, standard_roc, test, test.data, train, train.data, values_corr_model, variables_model, 
+   variables_model_full, variables_values, variables_values_full, variables2, X.full, X.test, X.test_saved, X.train,
+   X.train_saved, X2, Y.test_saved, Y.train_saved, alp, con, folds, i, indx, j, l, listado_selected, listado_selected_full,
+   maximo, method, minimo, modelo, no_cores, rows, sample, stdout, stdout_full, training, type.lambda, values_metabo,
+   values_metabo_full, variables_get, variables_get_full, Y.full, Y.test, Y.train, Y2)
+```
+
+## 2.2. HOMA.IR
+
+```{r, include = F}
+colnames(BBDDmet)
+HOMA = cbind(HOMA = BBDDmet$homa0_0,BBDDmet[117:705])
+```
+
+### 2.2.1. Entrenamiento de los modelos:
+
+#### Estimacion del valor de alpha:
+
+```{r}
+set.seed(13)
+
+rows = sample(nrow(HOMA))
+HOMA = HOMA [rows,]
+folds = cut(seq(1,nrow(HOMA)),breaks=698,labels=FALSE)
+
+train.data = c()
+test.data = c()
+cv = c()
+bT = c()
+
+for (i in 1:698) {
+  
+  training = which(folds==i, arr.ind=TRUE)
+  
+  train.data[[i]] = HOMA[-training, ]
+  test.data[[i]] = HOMA[training, ] 
+  
+  cv[[i]] = train(HOMA~., data=train.data[[i]],  method="glmnet", trControl=trainControl("cv", number=5), tuneLength = 10)
+  
+  bT[[i]] = cbind(cv[[i]]$bestTune, RMSE=min(cv[[i]]$results$RMSE))
+}
+```
+
+Selección del mejor Alpha y lambda.
+
+```{r}
+bT = data.frame(matrix(unlist(bT), ncol = 3, byrow= T))
+names(bT) = c("alpha","lambda","RMSE")
+l = bT$lambda[bT$RMSE== min(bT$RMSE)] #2.41356
+#l = 2.41356
+alp = bT$alpha[bT$RMSE== min(bT$RMSE)] #0.1
+#alp = 0.1
+```
+
+#### Selección de los metabolitos
+
+```{r}
+set.seed(32)
+
+type.lambda=c("lambda.min")
+#type.lambda=c("lambda.1se")
+
+fit_full=list()
+cvfit_full=list()
+variables_values_full=list()
+
+full_data=as.data.frame(HOMA)
+X.full=full_data[,2:(dim(full_data)[2])]
+X.full=as.matrix(X.full)
+Y.full = full_data$HOMA
+
+for (i in 1:10)
+{
+  cat("##################################", '\n')
+  cat("Iteration WHOLE DATASET ", i, '\n')
+  cat("##################################", '\n')
+  
+  fit_full[[i]] = glmnet(X.full, as.numeric(Y.full), lambda = l, family="gaussian", alpha=alp)
+  plot(fit_full[[i]])
+  
+  cvfit_full[[i]] = cv.glmnet(X.full, as.numeric(Y.full), family="gaussian", type.measure = "mse", nfolds = 10, alpha=alp)
+  plot(cvfit_full[[i]])
+  
+  list_metabo_full=coef(cvfit_full[[i]], s = type.lambda)
+  
+  values_metabo_full=list_metabo_full@x
+  values_metabo_full=values_metabo_full[-1]
+  
+  listado_selected_full=c(list_metabo_full@i)
+  variables_model_full=as.data.frame(colnames(X.full))
+  variables_get_full=variables_model_full[listado_selected_full,]
+  variables_get_full=as.character(variables_get_full)
+  
+  variables_values_full[[i]]=cbind(variables_get_full, values_metabo_full)
+}
+```
+
+#### Extracción de los metabolitos
+
+```{R}
+inter=as.data.frame(HOMA)
+variables2=as.data.frame(colnames(inter[,2:(length(inter))])) #Save variables
+
+colnames(variables2)=c("variables_get_full")
+variables2$check=c('NA')
+
+abc_set = data.frame(colnames(HOMA))
+colnames(abc_set)[colnames(abc_set)=="colnames.HOMA."] = "variables_get_full"
+
+for (i in 1:10) {
+  abc_set= merge(abc_set, variables_values_full[[i]], by = "variables_get_full", all.x = T)
+}
+colnames(abc_set) = c("variables_get_full","v1","v2","v3","v4","v5","v6","v7","v8","v9","v10")
+
+metabos_NA_model=as.data.frame(10 - rowSums(is.na(abc_set)))
+metabos_NA_model=cbind(abc_set$variables_get_full, metabos_NA_model)
+colnames(metabos_NA_model)=c("variables_get_full", "Join")
+metabos_NA_model=metabos_NA_model[order(metabos_NA_model$variables_get_full),]
+
+abc_set=merge(abc_set, metabos_NA_model, by = "variables_get_full", all=T)
+colnames(abc_set)=c("variables_get_full", "It1", "It2", "It3", "It4", "It5", "It6", "It7", "It8", "It9", "It10", "JOIN")
+
+abc_set_values=abc_set[,2:11]
+str(abc_set[,2:11], list.len=(ncol(abc_set))-3)
+
+indx = sapply(abc_set[,2:11], is.character)
+abc_set_values[indx] = lapply(abc_set_values[indx], function(x) as.numeric(as.character(x)))
+
+abc_full=cbind("Metabolites"=abc_set[,1], abc_set_values, "JOIN"=abc_set[,12])
+
+abc_full$mean=apply(abc_full[,2:11], 1, function(x) { mean(x, na.rm=TRUE) })
+abc_full$sd=apply(abc_full[,2:11], 1, function(x) { sd(x, na.rm=TRUE) })
+
+mean_values_metabo = abc_full[ which(abc_full$JOIN==10), c(1,13,14)]
+
+export(mean_values_metabo, "Only coef_gaussian_HOMA.xlsx")
+
+mean_values_metabo_matrix=as.matrix(mean_values_metabo)
+```
+
+#### Figuras
+
+```{r}
+new_mean_values_metabo=merge(mean_values_metabo, match_names, by = "Metabolites")
+
+mean_values_metabo_sorted=mean_values_metabo[order(mean_values_metabo$mean),c(1,2,3)]
+dim(mean_values_metabo_sorted)[1]
+
+new_mean_values_metabo_sorted=merge(mean_values_metabo_sorted, match_names, by = "Metabolites")
+new_mean_values_metabo_sorted=data.frame("Metabolites"=new_mean_values_metabo_sorted$name, "mean"=new_mean_values_metabo_sorted$mean, "sd"=new_mean_values_metabo_sorted$sd)
+new_mean_values_metabo_sorted=new_mean_values_metabo_sorted[order(new_mean_values_metabo_sorted$mean),c(1,2,3)]
+dim(new_mean_values_metabo_sorted)[1]
+
+selected_mean_values_metabo_sorted_negative=new_mean_values_metabo_sorted[(new_mean_values_metabo_sorted$mean<0), ]
+
+selected_mean_values_metabo_sorted_positive=new_mean_values_metabo_sorted[(new_mean_values_metabo_sorted$mean>=0), ]
+
+minimo=min(selected_mean_values_metabo_sorted_negative$mean)
+maximo=max(selected_mean_values_metabo_sorted_positive$mean)
+
+plot_negative=ggplot(selected_mean_values_metabo_sorted_negative, aes(x = mean, y = reorder(Metabolites, -mean))) +
+  geom_point() + scale_y_discrete(position = "left") + xlab("Coefficient value") + ylab("Metabolites") +
+  scale_x_continuous(limits = c(-1.5, 0)) + geom_errorbarh(aes(xmax = mean + sd, xmin = mean - sd, height = .2)) + 
+  theme_bw()
+
+plot_positive=ggplot(selected_mean_values_metabo_sorted_positive, aes(x = mean, y = reorder(Metabolites, +mean))) +
+  geom_point() + scale_y_discrete(position = "right") + xlab("Coefficient value") + ylab("Metabolites") +
+  scale_x_continuous(limits = c(0, 2.1)) + geom_errorbarh(aes(xmax = mean + sd, xmin = mean - sd, height = .2)) + 
+  theme_bw()
+
+require(gridExtra)
+png(filename = "coef_HOMA.png", width = 30, height = 20, res=300, unit="cm")
+grid.arrange(plot_negative, plot_positive, ncol=2)
+dev.off()
+
+dim(selected_mean_values_metabo_sorted_negative)[1]
+dim(selected_mean_values_metabo_sorted_positive)[1]
+
+export(new_mean_values_metabo_sorted, "coef/20250113_HOMA_coef.xlsx")
+```
+
+### 2.2.2. Validación interna
+
+#### Validación Training-testing
+
+```{r}
+rows = sample(nrow(HOMA))
+HOMA = HOMA[rows, ]
+folds = cut(seq(1,nrow(HOMA)),breaks=10,labels=FALSE)
+
+set_train=list()
+set_test=list()
+X.train_saved=list()
+Y.train_saved=list()
+X.test_saved=list()
+Y.test_saved=list()    
+fit=list()
+cvfit=list()
+variables_values=list()
+
+for (i in 1:10)
+{
+  cat("##################################", '\n')
+  cat("Iteration TRAINING-testing ", i, '\n')
+  cat("##################################", '\n \n')
+
+  sample = which(folds==i,arr.ind=TRUE)
+  set_train[[i]] = HOMA[-sample, ]  # note that it is inverted!!!!!
+  set_test[[i]]  = HOMA[sample, ]
+  
+  a=as.data.frame(set_train[[i]])
+  train=a[,2:(dim(a)[2])]
+  X.train = train
+  X.train = as.matrix(X.train)
+  Y.train = a$HOMA
+  
+  a=as.data.frame(set_test[[i]])
+  test=a[,2:(dim(a)[2])]
+  X.test = test
+  X.test = as.matrix(X.test)
+  Y.test = a$HOMA
+  
+  X.train_saved[[i]]=X.train
+  Y.train_saved[[i]]=Y.train
+  X.test_saved[[i]]=X.test
+  Y.test_saved[[i]]=Y.test    
+  
+  fit[[i]] = glmnet(X.train, as.numeric(Y.train), family="gaussian", alpha=alp)
+  plot(fit[[i]])
+  
+  cvfit[[i]] = cv.glmnet(X.train, as.numeric(Y.train), family="gaussian", type.measure = "mse", nfolds = 10, alpha=alp)
+  plot(cvfit[[i]])
+  
+  list_metabo=coef(cvfit[[i]], s = type.lambda)
+  values_metabo=list_metabo@x
+  values_metabo=values_metabo[-1]
+  
+  listado_selected=c(list_metabo@i)
+  variables_model=as.data.frame(colnames(X.train))
+  variables_get=variables_model[listado_selected,]
+  variables_get=as.character(variables_get)
+  variables_values[[i]]=cbind(variables_get, values_metabo)
+}
+```
+
+#### Pearson para el training-testing
+
+```{r}
+corr_test_pearson=list()
+corr_test_spearman=list()
+correlaciones_tt=matrix(NA,10,4)
+
+type.lambda=c("lambda.min")
+#type.lambda=c("lambda.1se")
+
+si_model = 0 
+
+for (i in 1:10)
+{
+  list_metabo=coef(cvfit[[i]], s = type.lambda)
+  
+  values_metabo=list_metabo@x
+  values_metabo=values_metabo[-1]
+  
+  listado_selected=c(list_metabo@i)
+  variables_model=as.data.frame(colnames(X.train))
+  variables_get=variables_model[listado_selected,]
+  variables_get=as.character(variables_get)
+  
+  variables_values[[i]]=cbind(variables_get, values_metabo)
+  
+  if (dim(variables_values[[i]])[1] == 0)
+  {
+    cat("No metabolites found for iteration", i, '\n')
+  }
+  
+  if (dim(variables_values[[i]])[1] != 0)
+  {
+    corr_test_pearson[[i]]=cor.test(Y.test_saved[[i]], predict(cvfit[[i]],newx=X.test_saved[[i]], s=type.lambda), method="pearson")
+    corr_test_spearman[[i]]=cor.test(Y.test_saved[[i]], predict(cvfit[[i]],newx=X.test_saved[[i]], s=type.lambda), method="spearman")
+    
+    correlaciones_tt[i,1]=round(corr_test_pearson[[i]]$estimate,2)
+    correlaciones_tt[i,2]=round(corr_test_pearson[[i]]$conf.int[1],2)
+    correlaciones_tt[i,3]=round(corr_test_pearson[[i]]$conf.int[2],2)
+    correlaciones_tt[i,4]=round(corr_test_pearson[[i]]$p.value,3)
+    
+    si_model = cbind(si_model, i)
+  }
+}
+
+ci.mean(correlaciones_tt[,1],normal=T) #0.64 (0.59, 0.70)
+
+#export(correlaciones_tt, "20250113_correlaciones_tt_HOMA.xlsx")
+```
+
+#### Pearson del modelo
+
+```{r}
+correlacion_all = c()
+
+X2 = data.frame(BBDDmet[,117:705])
+Y2 = BBDDmet$homa0_0
+b = mean_values_metabo
+
+if (length(b) != 0) {
+  stdout  = vector('character')
+  con = textConnection('stdout', 'wr', local = TRUE)
+  sink(con)
+  for (i in 1:(dim(b)[1]))
+  {
+    if (i == 1) {cat("X2$model=", sep="")}
+    if ((i < (dim(b)[1])) & (i > 0)) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")"," +", "\n", sep="")}
+    if (i == (dim(b)[1])) {cat("(","X2$",b[[i,1]],"*", b[[i,2]],")", sep="")}
+  }
+  sink()
+  
+  close(con)
+  
+  stdout_full = paste(unlist(stdout), collapse =" ")
+  stdout_full[1]
+  
+  eval(parse(text=stdout_full[1]))
+  
+  modelo = X2$model
+  
+  correlacion_all = cor.test(Y2,modelo, conf.level = .95) #0.74 (0.71, 0.77)
+} 
+
+score_homa= data.frame(cbind(id = BBDDmet$id, homa0_0 = BBDDmet$homa0_0, homa_est = modelo))
+score_diab = merge (score_diab, score_homa, by = "id")
+
+export(score_diab, "20250113_Scores.xlsx")
+
+save.image(file = "20250113_HOMA.RData")
+
+rm(a, abc_full, abc_set, abc_set_values, b, bT, corr_test_pearson, 
+   corr_test_spearman, correlacion_all, correlaciones_tt, cv, cvfit,
+   cvfit_full, HOMA, fit, fit_full, full_data, inter, list_metabo, list_metabo_full,
+   mean_values_metabo, mean_values_metabo_sorted, mean_values_metabo_matrix, met, metabos_NA_model, model.met,
+   new_mean_values_metabo, new_mean_values_metabo_sorted, plot_negative, plot_positive, 
+   selected_mean_values_metabo_sorted_negative, selected_mean_values_metabo_sorted_positive, set_test, set_train,
+   si_model, test, test.data, train, train.data, variables_model, 
+   variables_model_full, variables_values, variables_values_full, variables2, X.full, X.test, X.test_saved, X.train,
+   X.train_saved, X2, Y.test_saved, Y.train_saved, alp, con, folds, i, indx, l, listado_selected, listado_selected_full,
+   maximo, minimo, modelo, rows, sample, stdout, stdout_full, training, type.lambda, values_metabo,
+   values_metabo_full, variables_get, variables_get_full, Y.full, Y.test, Y.train, Y2, score_homa)
+```
